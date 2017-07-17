@@ -1,0 +1,8 @@
+en:
+  PLUGIN_BLC:
+    ADMIN:
+      TITLE: Broken Links
+      CHECK_MARKDOWN: Check Markdown
+      CHECK_MARKDOWN_HELP: Examine *.md files for broken relative links
+      CHECK_TWIG: Check Twig
+      CHECK_TWIG_HELP: Not yet implemented

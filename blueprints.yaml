@@ -1,0 +1,48 @@
+name: Broken Link Checker
+version: 0.1.0
+description: Finds broken relative links.
+icon: chain-broken
+author:
+  name: Jeremy Gonyea
+  email: jeremy.gonyea@gmail.com
+homepage: https://github.com/jgonyea/grav-plugin-broken-link-checker
+keywords: grav, plugin, links
+bugs: https://github.com/jgonyea/grav-plugin-broken-link-checker/issues
+docs: https://github.com/jgonyea/grav-plugin-broken-link-checker/blob/develop/README.md
+license: MIT
+
+form:
+  validation: loose
+  fields:
+    enabled:
+      type: toggle
+      label: PLUGIN_ADMIN.PLUGIN_STATUS
+      highlight: 1
+      default: 0
+      options:
+        1: PLUGIN_ADMIN.ENABLED
+        0: PLUGIN_ADMIN.DISABLED
+      validate:
+        type: bool
+    check_markdown:
+      type: toggle
+      label: PLUGIN_BLC.ADMIN.CHECK_MARKDOWN
+      help: PLUGIN_BLC.ADMIN.CHECK_MARKDOWN_HELP
+      highlight: 1
+      default: 1
+      options:
+        1: PLUGIN_ADMIN.ENABLED
+        0: PLUGIN_ADMIN.DISABLED
+      validate:
+        type: bool
+    check_twig:
+      type: toggle
+      label: PLUGIN_BLC.ADMIN.CHECK_TWIG
+      help: PLUGIN_BLC.ADMIN.CHECK_TWIG_HELP
+      highlight: 1
+      default: 0
+      options:
+        1: PLUGIN_ADMIN.ENABLED
+        0: PLUGIN_ADMIN.DISABLED
+      validate:
+        type: bool
