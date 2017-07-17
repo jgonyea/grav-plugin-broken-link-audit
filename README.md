@@ -40,11 +40,18 @@ enabled: true
 
 ## Known limitations
 
-**Describe known limitations here.**
+- Anchor links within a page are not checked.
+- Only page links are checked. Asset links are not checked currently.
+- Links within twig are not checked.
 
-## Credits
 
-**Did you incorporate third-party code? Want to thank somebody?**
+## Roadmap
+1. Find links in markdown, display in admin GUI
+2. Find links in markdown, run from CLI
+3. Cache results to user/data
+4. Add full content processing
+5. Leverage 404 log via logerrors?
+
 
 ## To Do
 

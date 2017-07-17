@@ -24,21 +24,10 @@ form:
         0: PLUGIN_ADMIN.DISABLED
       validate:
         type: bool
-    check_markdown:
+    cache_results:
       type: toggle
-      label: PLUGIN_BLC.ADMIN.CHECK_MARKDOWN
-      help: PLUGIN_BLC.ADMIN.CHECK_MARKDOWN_HELP
-      highlight: 1
-      default: 1
-      options:
-        1: PLUGIN_ADMIN.ENABLED
-        0: PLUGIN_ADMIN.DISABLED
-      validate:
-        type: bool
-    check_twig:
-      type: toggle
-      label: PLUGIN_BLC.ADMIN.CHECK_TWIG
-      help: PLUGIN_BLC.ADMIN.CHECK_TWIG_HELP
+      label: PLUGIN_BLC.ADMIN.CACHE
+      help: PLUGIN_BLC.ADMIN.CACHE_HELP
       highlight: 1
       default: 0
       options:
@@ -46,3 +35,13 @@ form:
         0: PLUGIN_ADMIN.DISABLED
       validate:
         type: bool
+    inspection_level:
+      type: select
+      size: medium
+      classes: fancy
+      help: PLUGIN_BLC.ADMIN.INSPECTION_LEVEL.HELP
+      label: PLUGIN_BLC.ADMIN.INSPECTION_LEVEL.LABEL
+      default: raw
+      options:
+        rendered: PLUGIN_BLC.ADMIN.INSPECTION_LEVEL.RENDERED
+        raw: PLUGIN_BLC.ADMIN.INSPECTION_LEVEL.RAW
