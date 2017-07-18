@@ -51,7 +51,7 @@ enabled: true
 3. Cache results to user/data
 4. Add full content processing
 5. Leverage 404 log via logerrors?
-
+6. Add functionality to bulk-update links?
 
 ## To Do
 

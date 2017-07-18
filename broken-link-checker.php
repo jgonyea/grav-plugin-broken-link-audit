@@ -100,8 +100,6 @@ class BrokenLinkCheckerPlugin extends Plugin
         // Debug line until rendered content is built.
         $inspection_level = 'raw';
 
-        dump($valid_routes);
-
 
         // * Find list of all pages
             // * Load each page content

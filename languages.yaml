@@ -9,3 +9,7 @@ en:
         HELP: Select level of inspection. Setting to Raw Markdown is faster, but may miss links created by Twig.
       CACHE: Cache Results
       CACHE_HELP: Cache results in user/data
+    PAGE:
+      HEADING: Broken Links
+      PAGE_LABEL: Page
+      URL_LABEL: Destination

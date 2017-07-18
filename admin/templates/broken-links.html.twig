@@ -1,1 +1,29 @@
 {% extends 'partials/base.html.twig' %}
+
+{% if admin.route %}
+    {% set context = admin.page(true) %}
+{% endif %}
+
+{% block titlebar %}
+    <h1><i class="fa fa-fw fa-chain-broken"></i> {{ "PLUGIN_BLC.ADMIN.TITLE"|tu }}</h1>
+{% endblock %}
+
+{% block content %}
+
+    <h1>{{ "PLUGIN_BLC.PAGE.HEADING"|t}}</h1>
+    {% for i in 1..10 %}
+    <div>
+        <a href="#" target="_blank"><h2>{{ "PLUGIN_BLC.PAGE.PAGE_LABEL"|t ~ ": Page " ~ loop.index}}</h2></a>
+
+        <ul>
+        {% for j in 1..4%}
+            {% set striping = cycle(["even", "odd"], loop.index) %}
+            <li class="{{ striping }}">
+                Link {{ loop.index }} points to missing {{ loop.index }}
+            </li>
+        {% endfor %}
+        </ul>
+
+    </div>
+    {% endfor %}
+{% endblock %}
