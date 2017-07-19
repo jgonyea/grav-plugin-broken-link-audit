@@ -1,15 +1,9 @@
 <?php
 namespace Grav\Plugin;
 
-use Grav\Common\Page\Collection;
-use Grav\Common\Page\Page;
-use Grav\Common\Page\Types;
 use Grav\Common\Plugin;
-use Grav\Common\Themes;
-use Grav\Common\Twig\Twig;
-use Grav\Common\Utils;
-use RocketTheme\Toolbox\Event\Event;
-use RocketTheme\Toolbox\ResourceLocator\UniformResourceLocator;
+use RocketTheme\Toolbox\File\File;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Class BrokenLinkCheckerPlugin
@@ -44,7 +38,6 @@ class BrokenLinkCheckerPlugin extends Plugin
         if ($this->isAdmin()) {
             $this->initializeAdmin();
         }
-
         return;
     }
 
@@ -57,14 +50,10 @@ class BrokenLinkCheckerPlugin extends Plugin
         $uri = $this->grav['uri'];
 
         $this->enable([
-        'onTwigTemplatePaths' => ['onTwigAdminTemplatePaths', 0],
-        'onAdminMenu' => ['onAdminMenu', 0],
-        'onPagesInitialized' => ['onPagesInitialized', 0],
+            'onTwigTemplatePaths' => ['onTwigAdminTemplatePaths', 0],
+            'onAdminMenu' => ['onAdminMenu', 0],
+            'onPagesInitialized' => ['onPagesInitialized', 0],
         ]);
-
-        if (strpos($uri->path(), $this->config->get('plugins.admin.route') . '/' . $this->route) === false) {
-            return;
-        }
     }
 
   /**
@@ -72,6 +61,7 @@ class BrokenLinkCheckerPlugin extends Plugin
    */
     public function onAdminMenu()
     {
+        // Set title of the admin page.
         $this->grav['twig']->plugins_hooked_nav['PLUGIN_BLC.ADMIN.TITLE'] = ['route' => $this->route, 'icon' => 'fa-chain-broken'];
     }
 
@@ -81,6 +71,9 @@ class BrokenLinkCheckerPlugin extends Plugin
     public function onTwigAdminTemplatePaths()
     {
         $this->grav['twig']->twig_paths[] = __DIR__ . '/admin/templates';
+        $this->grav['twig']->blc_links = $this->getInvalidLinks();
+        $config = $this->config();
+        $this->grav['twig']->blc_inspection = $config['inspection_level'];
     }
 
   /**
@@ -92,66 +85,98 @@ class BrokenLinkCheckerPlugin extends Plugin
         if ($page_slug != 'broken-links') {
             return;
         }
-        $links = array();
 
         $valid_routes = $this->grav['pages']->routes();
+        $valid_routes_keys = array_keys($valid_routes);
         $inspection_level = $this->config()['inspection_level'];
 
-        // Debug line until rendered content is built.
+        // Debug line forces raw inspection method until rendered content is built.
         $inspection_level = 'raw';
-
-
-        // * Find list of all pages
-            // * Load each page content
-            // * Search for links
-            // Check link validity
-            // Build list of bad links
 
         $all_pages = $this->grav['pages']->all()->published();
 
-        foreach ($all_pages as $page) {
+        // Iterator for matching full routes with what page we're on.
+        $i = 0;
+        foreach ($all_pages as $key => $page) {
             if ($inspection_level == 'raw') {
                 $content = $page->raw();
             } elseif ($inspection_level == 'rendered') {
                 // todo: find rendered content of a page.
-                // Setting content to raw until this gets finished.
-                $content = $page->raw();
-
             }
-            $rel_links = $this->findRelativeLinks($content, $inspection_level);
-
+            $rel_links[$valid_routes_keys[$i]] = $this->findInvalidRelativeLinks(
+                $content,
+                $inspection_level,
+                $valid_routes
+            );
+            $i++;
         }
+        $this->saveInvalidLinks($rel_links);
     }
 
 
     /**
      * @param $content
+     * @param $inspection_level
+     * @param $valid_routes
      * @return array
      *   Array of links found within the content.
      */
-    public function findRelativeLinks($content, $inspection_level)
+    public function findInvalidRelativeLinks($content, $inspection_level, $valid_routes)
     {
-
-
         if ($inspection_level == 'raw') {
             $pattern = '/\(([^)]+)\)/';
-            $stuff = preg_match_all($pattern, $content, $links);
+            preg_match_all($pattern, $content, $links);
         } elseif ($inspection_level == 'rendered') {
             dump("FINDING LINKS IN $inspection_level");
         }
 
-        if($links){
-            foreach($links[0] as $key => $link){
-                //dump($link);
-                if(strlen($link) > 5 && substr($link, 0, 5) == '(http'){
-                    //dump($content);
+        if ($links) {
+            foreach ($links[1] as $key => $link) {
+                if (strlen($link) > 5 && substr($link, 0, 4) == 'http') {
+                    // Don't return external links.
+                    unset($links[1][$key]);
+                }
+                if (isset($valid_routes[$link])) {
+                    // Don't return vaild links.
                     unset($links[1][$key]);
                 }
             }
+            return $links[1];
         }
+        return null;
+    }
+
+    public function saveInvalidLinks($links)
+    {
+        $filename = DATA_DIR . 'broken-links-checker/links';
+        $filename .= '.yaml';
+        $file = File::instance($filename);
+
+        foreach ($links as $route => $link) {
+            if (!empty($link)) {
+                if (file_exists($filename)) {
+                    $data = Yaml::parse($file->content());
+                    $data[$route]['broken_links']= $link;
+                } else {
+                    $data[$route] = array(
+                        'broken_links' => $link,
+                    );
+                }
+                $file->save(Yaml::dump($data));
+            }
+        }
+    }
 
 
-
-        return $links[1];
+    public function getInvalidLinks()
+    {
+        $data = array("Run Report" => []);
+        $filename = DATA_DIR . 'broken-links-checker/links';
+        $filename .= '.yaml';
+        $file = File::instance($filename);
+        if (file_exists($filename)) {
+            $data = Yaml::parse($file->content());
+        }
+        return $data;
     }
 }
