@@ -1,7 +1,7 @@
 en:
   PLUGIN_BLC:
     ADMIN:
-      TITLE: Broken Links Checker
+      TITLE: Broken Link Checker
       INSPECTION_LEVEL:
         LABEL: Inspection Level
         RAW: 'Raw Markdown Content (Faster)'
@@ -10,6 +10,6 @@ en:
       CACHE: Cache Results
       CACHE_HELP: Cache results in user/data
     PAGE:
-      HEADING: 'Broken Links Inspection Method: '
+      HEADING: 'Broken Link Inspection Method: '
       PAGE_LABEL: Page
       URL_LABEL: Destination

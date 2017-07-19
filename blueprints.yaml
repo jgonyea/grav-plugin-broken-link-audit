@@ -1,5 +1,5 @@
 name: Broken Link Checker
-version: 0.1.0
+version: 0.8.0
 description: Finds broken relative links.
 icon: chain-broken
 author:
@@ -17,17 +17,6 @@ form:
     enabled:
       type: toggle
       label: PLUGIN_ADMIN.PLUGIN_STATUS
-      highlight: 1
-      default: 0
-      options:
-        1: PLUGIN_ADMIN.ENABLED
-        0: PLUGIN_ADMIN.DISABLED
-      validate:
-        type: bool
-    cache_results:
-      type: toggle
-      label: PLUGIN_BLC.ADMIN.CACHE
-      help: PLUGIN_BLC.ADMIN.CACHE_HELP
       highlight: 1
       default: 0
       options:

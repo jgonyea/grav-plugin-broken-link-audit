@@ -32,28 +32,29 @@ Here is the default configuration and an explanation of available options:
 
 ```yaml
 enabled: true
+inspection_level: raw
 ```
+### Inspection_level
+There are two options, ```raw``` and ```rendered```.  Currently, only the raw inspection is functioning for broken links (see To Do for future plans).
 
 ## Usage
 
-**Describe how to use the plugin.**
+After installing the plugin, visit admin/broken-links (or click on the new Admin menu item).  The first time visiting the report will display a button
 
 ## Known limitations
 
+- The report will add new links that it finds, but will not remove them once fixed. Current workaround is to delete the report located at user/data and re-run the report.
 - Anchor links within a page are not checked.
-- Only page links are checked. Asset links are not checked currently.
+- Only page links are properly checked. Asset links are not properly checked.
 - Links within twig are not checked.
-
-
-## Roadmap
-1. Find links in markdown, display in admin GUI
-2. Find links in markdown, run from CLI
-3. Cache results to user/data
-4. Add full content processing
-5. Leverage 404 log via logerrors?
-6. Add functionality to bulk-update links?
 
 ## To Do
 
-- [ ] If possible, add feature to admin/tools 
-
+- Standardize terminology of broken links/ broken link/ etc.
+- Complete the languages.yaml file.
+- If possible, add feature to admin/tools.
+- Add Rendered content processing.
+- Add a CLI interface to generate the broken links list.
+- Add ability to update a link from report.
+- Possibly leverage 404 log via logerrors plugin.
+- Create new report based grouped not by pages, but on the broken referenced link

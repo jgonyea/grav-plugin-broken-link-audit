@@ -1,5 +1,3 @@
 enabled: true
-check_markdown: true
 cache_results: false
-check_twig: false
 inspection_level: raw
