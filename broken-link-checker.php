@@ -103,14 +103,15 @@ class BrokenLinkCheckerPlugin extends Plugin
             } elseif ($inspection_level == 'rendered') {
                 // todo: find rendered content of a page.
             }
-            $rel_links[$valid_routes_keys[$i]] = $this->findInvalidRelativeLinks(
+            $all_links[$valid_routes_keys[$i]] = $this->findPageLinks(
                 $content,
-                $inspection_level,
-                $valid_routes
+                $inspection_level
             );
             $i++;
         }
-        $this->saveInvalidLinks($rel_links);
+        $bad_links = $this->checkLinks($all_links, $inspection_level, $valid_routes);
+
+        $this->saveInvalidLinks($bad_links);
     }
 
 
@@ -121,29 +122,22 @@ class BrokenLinkCheckerPlugin extends Plugin
      * @return array
      *   Array of links found within the content.
      */
-    public function findInvalidRelativeLinks($content, $inspection_level, $valid_routes)
+    public function findPageLinks($content, $inspection_level)
     {
+        $links = null;
         if ($inspection_level == 'raw') {
-            $pattern = '/\(([^)]+)\)/';
-            preg_match_all($pattern, $content, $links);
-        } elseif ($inspection_level == 'rendered') {
-            dump("FINDING LINKS IN $inspection_level");
-        }
+            // Create list of matching URLS to patterns.
+            foreach ($this->raw_inspection_patterns() as $type => $page_pattern) {
+                preg_match_all($page_pattern, $content, $matches);
 
-        if ($links) {
-            foreach ($links[1] as $key => $link) {
-                if (strlen($link) > 5 && substr($link, 0, 4) == 'http') {
-                    // Don't return external links.
-                    unset($links[1][$key]);
-                }
-                if (isset($valid_routes[$link])) {
-                    // Don't return vaild links.
-                    unset($links[1][$key]);
+                if (count($matches[0]) > 0) {
+                    $links[$type] = $matches[0];
                 }
             }
-            return $links[1];
+        } elseif ($inspection_level == 'rendered') {
+            $links = null;
         }
-        return null;
+        return $links;
     }
 
     public function saveInvalidLinks($links)
@@ -151,22 +145,17 @@ class BrokenLinkCheckerPlugin extends Plugin
         $filename = DATA_DIR . 'broken-links-checker/links';
         $filename .= '.yaml';
         $file = File::instance($filename);
-
+        // Reset report.
+        if ($file->exists()) {
+            $file->delete();
+        }
         foreach ($links as $route => $link) {
             if (!empty($link)) {
-                if (file_exists($filename)) {
-                    $data = Yaml::parse($file->content());
-                    $data[$route]['broken_links']= $link;
-                } else {
-                    $data[$route] = array(
-                        'broken_links' => $link,
-                    );
-                }
+                $data[$route] = $link;
                 $file->save(Yaml::dump($data));
             }
         }
     }
-
 
     public function getInvalidLinks()
     {
@@ -178,5 +167,65 @@ class BrokenLinkCheckerPlugin extends Plugin
             $data = Yaml::parse($file->content());
         }
         return $data;
+    }
+
+    public function checkLinks($links, $inspection_level, $valid_routes)
+    {
+        // todo: make this a direct call from find links rather than having to reparse the whole thing again.
+        $bad_links = array();
+        foreach ($links as $path => $page) {
+            if ($inspection_level == 'raw') {
+                foreach ($this->raw_inspection_patterns() as $type => $pattern) {
+                    if (isset($page[ $type ])) {
+                        foreach ($page[ $type ] as $key => $link) {
+                            switch ($type) {
+                                case 'page_relative':
+                                    $bad_links[$path][$type][$key] = $link;
+                                    break;
+                                case 'page_absolute':
+                                    $bad_links[$path][$type][$key] = $link;
+                                    break;
+                                case 'page_remote':
+                                    // Don't return remote links.
+                                    $bad_links[$path][$type][$key] = $link;
+                                    break;
+                                case 'combined':
+                                    $bad_links[$path][$type][$key] = $link;
+                                    break;
+                                case 'media_relative':
+                                    $bad_links[$path][$type][$key] = $link;
+                                    break;
+                                case 'media_absolute':
+                                    $bad_links[$path][$type][$key] = $link;
+                                    break;
+                                case 'media_remote':
+                                    // Don't return remote links.
+                                    //$bad_links[$path][$type][$key] = $link;
+                                    break;
+                                default:
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        //return $bad_links;
+        return $bad_links;
+    }
+
+    private function raw_inspection_patterns()
+    {
+        return array(
+        'page_relative'     =>  '/[^!]\[[^!].*\]\((?!http)[^\/].*\)/',
+        'page_absolute'     =>  '/[^!]\[[^!].*\]\(\/.*\)/',
+        'page_remote'       =>  '/[^!]\[[^!].*\]\(http.*\)/',
+
+        'combined'          =>  '/\[!\[.*\]\(.*\)\]\(.*\)/',
+
+        'media_relative'    =>  '/\![[^!].*\]\((?!http)(?!user)(?!theme)(?!plugin)[^\/].*\)/',
+        'media_absolute'    =>  '/[^\[]!\[[^!].*\]\(\/.*\)/',
+        'media_remote'      =>  '/[^\[]!\[[^!].*\]\(http.*\)/',
+        );
     }
 }

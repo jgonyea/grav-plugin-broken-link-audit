@@ -28,32 +28,37 @@
         .broken-links-page a h2 {
             margin: 0 !important;
         }
+        .broken-links-page h3 {
+            font-size: 18px;
+        }
 
     </style>
-    {%  set heading = "PLUGIN_BLC.PAGE.HEADING"|t ~ grav.twig.blc_inspection|camelize %}
+    {% set heading = "PLUGIN_BLC.PAGE.HEADING"|t ~ grav.twig.blc_inspection|camelize %}
+    {% set broken_links_data = grav.twig.blc_links %}
 
     <h1>{{ heading }}</h1>
-    {% set broken_links = grav.twig.blc_links %}
-    {% for page,links in broken_links %}
-
-    <div class="broken-links-page">
-    {# Fake a Run Report button #}
+    {% for page,pages in broken_links_data %}
+        <div class="broken-links-page">
+        {# Fake a Run Report button #}
         {% if page != 'Run Report' %}
-        <a href="{{ 'pages' ~ page }}" target="_blank"><h2>{{ page }}</h2></a>
-    {% else %}
-        <a href="broken-links" class="button"><h2>{{ page }}</h2></a>
-    {% endif %}
+            <a href="{{ 'pages' ~ page }}" target="_blank"><h2>{{ page }}</h2></a>
+        {% else %}
+            <a href="broken-links" class="button"><h2>{{ page ~ type|first }}</h2></a>
+        {% endif %}
 
-        <ul>
-        {% for link in links|first %}
-            {{ dump(link) }}
-            {% set striping = cycle(["even", "odd"], loop.index) %}
-            <li class="{{ striping }}">
-                {{ link }}
-            </li>
+
+        {% for label,links in pages %}
+            <h3>{{ 'Type: ' ~ label }}</h3>
+            <ul>
+            {% for link in links %}
+                {% set striping = cycle(["even", "odd"], loop.index) %}
+                <li class="{{ striping }}">
+                    {{ link }}
+                </li>
+            {% endfor %}
+            </ul>
         {% endfor %}
-        </ul>
 
-    </div>
+        </div>
     {% endfor %}
 {% endblock %}

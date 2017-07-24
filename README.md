@@ -37,15 +37,21 @@ inspection_level: raw
 ### Inspection_level
 There are two options, ```raw``` and ```rendered```.  Currently, only the raw inspection is functioning for broken links (see To Do for future plans).
 
+
+## Link Types Checked
+** List here **
+
+## Link Types Not Checked
+** List here **
+
+
 ## Usage
 
 After installing the plugin, visit admin/broken-links (or click on the new Admin menu item).  The first time visiting the report will display a button
 
 ## Known limitations
 
-- The report will add new links that it finds, but will not remove them once fixed. Current workaround is to delete the report located at user/data and re-run the report.
 - Anchor links within a page are not checked.
-- Only page links are properly checked. Asset links are not properly checked.
 - Links within twig are not checked.
 
 ## To Do
