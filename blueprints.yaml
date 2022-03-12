@@ -1,15 +1,20 @@
-name: Broken Link Checker
-version: 0.8.0
-description: Finds broken relative links.
+name: Broken Link Audit
+slug: broken-link-audit
+type: plugin
+version: 0.1.0
+description: Finds broken links in user content.
 icon: chain-broken
 author:
   name: Jeremy Gonyea
   email: jeremy.gonyea@gmail.com
 homepage: https://github.com/jgonyea/grav-plugin-broken-link-checker
-keywords: grav, plugin, links
-bugs: https://github.com/jgonyea/grav-plugin-broken-link-checker/issues
-docs: https://github.com/jgonyea/grav-plugin-broken-link-checker/blob/develop/README.md
+keywords: grav, plugin, links, scan, seo, 
+bugs: https://github.com/jgonyea/grav-plugin-broken-link-audit/issues
+docs: https://github.com/jgonyea/grav-plugin-broken-link-audit/blob/develop/README.md
 license: MIT
+
+dependencies:
+    - { name: grav, version: '>=1.6.21' }
 
 form:
   validation: loose
@@ -28,9 +33,9 @@ form:
       type: select
       size: medium
       classes: fancy
-      help: PLUGIN_BLC.ADMIN.INSPECTION_LEVEL.HELP
-      label: PLUGIN_BLC.ADMIN.INSPECTION_LEVEL.LABEL
+      help: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.HELP
+      label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.LABEL
       default: raw
       options:
-        rendered: PLUGIN_BLC.ADMIN.INSPECTION_LEVEL.RENDERED
-        raw: PLUGIN_BLC.ADMIN.INSPECTION_LEVEL.RAW
+        rendered: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.RENDERED
+        raw: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.RAW

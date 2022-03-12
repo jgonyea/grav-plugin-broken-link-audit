@@ -1,0 +1,6 @@
+# IDE
+.vscode
+
+# Devlopment related
+vendor
+node_modules

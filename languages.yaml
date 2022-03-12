@@ -1,7 +1,7 @@
 en:
-  PLUGIN_BLC:
+  PLUGIN_BROKEN_LINK_AUDIT:
     ADMIN:
-      TITLE: Broken Link Checker
+      TITLE: Broken Link Audit
       INSPECTION_LEVEL:
         LABEL: Inspection Level
         RAW: 'Raw Markdown Content (Faster)'

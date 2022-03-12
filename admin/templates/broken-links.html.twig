@@ -5,7 +5,7 @@
 {% endif %}
 
 {% block titlebar %}
-    <h1><i class="fa fa-fw fa-chain-broken"></i> {{ "PLUGIN_BLC.ADMIN.TITLE"|tu }}</h1>
+    <h1><i class="fa fa-fw fa-chain-broken"></i> {{ "PLUGIN_BROKEN_LINK_AUDIT.ADMIN.TITLE"|tu }}</h1>
 {% endblock %}
 
 {% block content %}
@@ -33,7 +33,7 @@
         }
 
     </style>
-    {% set heading = "PLUGIN_BLC.PAGE.HEADING"|t ~ grav.twig.blc_inspection|camelize %}
+    {% set heading = "PLUGIN_BROKEN_LINK_AUDIT.PAGE.HEADING"|t ~ grav.twig.blc_inspection|camelize %}
     {% set broken_links_data = grav.twig.blc_links %}
 
     <h1>{{ heading }}</h1>

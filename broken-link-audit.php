@@ -1,15 +1,16 @@
 <?php
 namespace Grav\Plugin;
 
+use Composer\Autoload\ClassLoader;
 use Grav\Common\Plugin;
 use RocketTheme\Toolbox\File\File;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Class BrokenLinkCheckerPlugin
+ * Class BrokenLinkAuditPlugin
  * @package Grav\Plugin
  */
-class BrokenLinkCheckerPlugin extends Plugin
+class BrokenLinkAuditPlugin extends Plugin
 {
     protected $route = 'broken-links';
 
@@ -62,7 +63,7 @@ class BrokenLinkCheckerPlugin extends Plugin
     public function onAdminMenu()
     {
         // Set title of the admin page.
-        $this->grav['twig']->plugins_hooked_nav['PLUGIN_BLC.ADMIN.TITLE'] = ['route' => $this->route, 'icon' => 'fa-chain-broken'];
+        $this->grav['twig']->plugins_hooked_nav['PLUGIN_BROKEN_LINK_AUDIT.ADMIN.TITLE'] = ['route' => $this->route, 'icon' => 'fa-chain-broken'];
     }
 
   /**
@@ -97,6 +98,7 @@ class BrokenLinkCheckerPlugin extends Plugin
 
         // Iterator for matching full routes with what page we're on.
         $i = 0;
+        $all_links = [];
         foreach ($all_pages as $key => $page) {
             if ($inspection_level == 'raw') {
                 $content = $page->raw();
@@ -142,7 +144,7 @@ class BrokenLinkCheckerPlugin extends Plugin
 
     public function saveInvalidLinks($links)
     {
-        $filename = DATA_DIR . 'broken-links-checker/links';
+        $filename = DATA_DIR . 'broken-links-audit/links';
         $filename .= '.yaml';
         $file = File::instance($filename);
         // Reset report.
@@ -160,7 +162,7 @@ class BrokenLinkCheckerPlugin extends Plugin
     public function getInvalidLinks()
     {
         $data = array("Run Report" => []);
-        $filename = DATA_DIR . 'broken-links-checker/links';
+        $filename = DATA_DIR . 'broken-links-audit/links';
         $filename .= '.yaml';
         $file = File::instance($filename);
         if (file_exists($filename)) {
