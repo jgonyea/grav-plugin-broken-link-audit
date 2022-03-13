@@ -1,5 +1,5 @@
 ---
-title: 'Broken links Checker'
+title: 'Broken links Audit'
 ---
 Paste the following on [Regexr](http://regexr.com/)
 

@@ -33,8 +33,8 @@
         }
 
     </style>
-    {% set heading = "PLUGIN_BROKEN_LINK_AUDIT.PAGE.HEADING"|t ~ grav.twig.blc_inspection|camelize %}
-    {% set broken_links_data = grav.twig.blc_links %}
+    {% set heading = "PLUGIN_BROKEN_LINK_AUDIT.PAGE.HEADING"|t ~ grav.twig.bla_inspection|camelize %}
+    {% set broken_links_data = grav.twig.bla_links %}
 
     <h1>{{ heading }}</h1>
     {% for page,pages in broken_links_data %}

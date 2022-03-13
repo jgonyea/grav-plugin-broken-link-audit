@@ -17,7 +17,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Grav\\Plugin\\BrokenLinkChecks\\": "classes/"
+      "Grav\\Plugin\\BrokenLinkAudit\\": "classes/"
     },
     "classmap":  ["broken-link-audit.php"]
   },

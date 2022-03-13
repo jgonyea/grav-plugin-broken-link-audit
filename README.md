@@ -64,3 +64,8 @@ After installing the plugin, visit admin/broken-links (or click on the new Admin
 - Add ability to update a link from report.
 - Possibly leverage 404 log via logerrors plugin.
 - Create new report based grouped not by pages, but on the broken referenced link
+
+
+## Thanks
+
+I cribbed quite a bit from the TNTSearch plugin's scheduling.

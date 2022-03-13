@@ -1,13 +1,13 @@
 name: Broken Link Audit
 slug: broken-link-audit
 type: plugin
-version: 0.1.0
+version: 1.0.0
 description: Finds broken links in user content.
 icon: chain-broken
 author:
   name: Jeremy Gonyea
   email: jeremy.gonyea@gmail.com
-homepage: https://github.com/jgonyea/grav-plugin-broken-link-checker
+homepage: https://github.com/jgonyea/grav-plugin-broken-link-audit
 keywords: grav, plugin, links, scan, seo, 
 bugs: https://github.com/jgonyea/grav-plugin-broken-link-audit/issues
 docs: https://github.com/jgonyea/grav-plugin-broken-link-audit/blob/develop/README.md

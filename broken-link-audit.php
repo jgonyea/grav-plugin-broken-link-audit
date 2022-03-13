@@ -3,6 +3,8 @@ namespace Grav\Plugin;
 
 use Composer\Autoload\ClassLoader;
 use Grav\Common\Plugin;
+use Grav\Plugin\BrokenLinkAudit\Auditor;
+use Pimple\Container;
 use RocketTheme\Toolbox\File\File;
 use Symfony\Component\Yaml\Yaml;
 
@@ -13,6 +15,7 @@ use Symfony\Component\Yaml\Yaml;
 class BrokenLinkAuditPlugin extends Plugin
 {
     protected $route = 'broken-links';
+    protected $auditor;
 
   /**
    * @return array
@@ -27,8 +30,22 @@ class BrokenLinkAuditPlugin extends Plugin
     public static function getSubscribedEvents()
     {
         return [
-        'onPluginsInitialized' => ['onPluginsInitialized', 0]
+            'onPluginsInitialized' => [
+                ['autoload', 100000],
+                ['onPluginsInitialized', 0]
+            ],
         ];
+    }
+
+
+    /**
+     * [onPluginsInitialized:100000] Composer autoload.
+     *is
+     * @return ClassLoader
+     */
+    public function autoload(): ClassLoader
+    {
+        return require __DIR__ . '/vendor/autoload.php';
     }
 
   /**
@@ -37,24 +54,14 @@ class BrokenLinkAuditPlugin extends Plugin
     public function onPluginsInitialized()
     {
         if ($this->isAdmin()) {
-            $this->initializeAdmin();
+            $this->auditor = new Auditor();
+            $this->enable([
+                'onTwigTemplatePaths' => ['onTwigAdminTemplatePaths', 0],
+                'onAdminMenu' => ['onAdminMenu', 0],
+                'onPagesInitialized' => ['onPagesInitialized', 0],
+            ]);
         }
         return;
-    }
-
-  /**
-   * Admin side initialization.
-   */
-    public function initializeAdmin()
-    {
-        /** @var Uri $uri */
-        $uri = $this->grav['uri'];
-
-        $this->enable([
-            'onTwigTemplatePaths' => ['onTwigAdminTemplatePaths', 0],
-            'onAdminMenu' => ['onAdminMenu', 0],
-            'onPagesInitialized' => ['onPagesInitialized', 0],
-        ]);
     }
 
   /**
@@ -63,7 +70,16 @@ class BrokenLinkAuditPlugin extends Plugin
     public function onAdminMenu()
     {
         // Set title of the admin page.
-        $this->grav['twig']->plugins_hooked_nav['PLUGIN_BROKEN_LINK_AUDIT.ADMIN.TITLE'] = ['route' => $this->route, 'icon' => 'fa-chain-broken'];
+
+        $count = new Container(['count' => function () { return $this->auditor->count_hits(); }]);
+
+        $this->grav['twig']->plugins_hooked_nav['PLUGIN_BROKEN_LINK_AUDIT.ADMIN.TITLE'] = [
+            'route' => $this->route,
+            'icon' => 'fa-chain-broken',
+            'authorize' => ['admin.pages', 'admin.super'],
+            'badge' => $count,
+        ];
+
     }
 
   /**
@@ -72,45 +88,45 @@ class BrokenLinkAuditPlugin extends Plugin
     public function onTwigAdminTemplatePaths()
     {
         $this->grav['twig']->twig_paths[] = __DIR__ . '/admin/templates';
-        $this->grav['twig']->blc_links = $this->getInvalidLinks();
+        $this->grav['twig']->bla_links = $this->getInvalidLinks();
         $config = $this->config();
-        $this->grav['twig']->blc_inspection = $config['inspection_level'];
+        $this->grav['twig']->bla_inspection = $config['inspection_level'];
     }
 
-  /**
-   *  Build search
-   */
+    /**
+     *  Build search
+     */
     public function onPagesInitialized()
     {
-        $page_slug = $this->grav['page']->slug();
-        if ($page_slug != 'broken-links') {
+        if ($this->grav['page']->template() != 'broken-links') {
             return;
         }
+        
+        // Shouldn't use this if we're not in admin.
+        $this->grav['admin']->enablePages();
+        $pages = $this->grav['pages']->all();
 
         $valid_routes = $this->grav['pages']->routes();
         $valid_routes_keys = array_keys($valid_routes);
         $inspection_level = $this->config()['inspection_level'];
 
-        // Debug line forces raw inspection method until rendered content is built.
-        $inspection_level = 'raw';
-
-        $all_pages = $this->grav['pages']->all()->published();
-
         // Iterator for matching full routes with what page we're on.
         $i = 0;
         $all_links = [];
-        foreach ($all_pages as $key => $page) {
+        foreach ($pages as $key => $page) {
             if ($inspection_level == 'raw') {
                 $content = $page->raw();
             } elseif ($inspection_level == 'rendered') {
                 // todo: find rendered content of a page.
             }
-            $all_links[$valid_routes_keys[$i]] = $this->findPageLinks(
+
+            $all_links[$page->route()] = $this->findPageLinks(
                 $content,
                 $inspection_level
             );
             $i++;
         }
+
         $bad_links = $this->checkLinks($all_links, $inspection_level, $valid_routes);
 
         $this->saveInvalidLinks($bad_links);
@@ -144,7 +160,7 @@ class BrokenLinkAuditPlugin extends Plugin
 
     public function saveInvalidLinks($links)
     {
-        $filename = DATA_DIR . 'broken-links-audit/links';
+        $filename = DATA_DIR . 'broken-link-audit/links';
         $filename .= '.yaml';
         $file = File::instance($filename);
         // Reset report.
@@ -162,7 +178,7 @@ class BrokenLinkAuditPlugin extends Plugin
     public function getInvalidLinks()
     {
         $data = array("Run Report" => []);
-        $filename = DATA_DIR . 'broken-links-audit/links';
+        $filename = DATA_DIR . 'broken-link-audit/links';
         $filename .= '.yaml';
         $file = File::instance($filename);
         if (file_exists($filename)) {
@@ -212,7 +228,6 @@ class BrokenLinkAuditPlugin extends Plugin
             }
         }
 
-        //return $bad_links;
         return $bad_links;
     }
 
