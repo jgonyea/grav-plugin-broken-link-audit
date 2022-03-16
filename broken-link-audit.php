@@ -71,7 +71,10 @@ class BrokenLinkAuditPlugin extends Plugin
     {
         // Set title of the admin page.
 
-        $count = new Container(['count' => function () { return $this->auditor->count_hits(); }]);
+        $count = new Container([
+            'updates' => 0,
+            'count' => function () { return $this->auditor->count_routes(); }
+        ]);
 
         $this->grav['twig']->plugins_hooked_nav['PLUGIN_BROKEN_LINK_AUDIT.ADMIN.TITLE'] = [
             'route' => $this->route,
@@ -88,7 +91,16 @@ class BrokenLinkAuditPlugin extends Plugin
     public function onTwigAdminTemplatePaths()
     {
         $this->grav['twig']->twig_paths[] = __DIR__ . '/admin/templates';
+        
+        // Reads invalid links from db.
         $this->grav['twig']->bla_links = $this->getInvalidLinks();
+        
+        // Offer Run Reports button if links returns empty.
+        if (empty($this->grav['twig']->bla_links)){
+            $this->grav['twig']->bla_links = [
+                "Run Report" => []
+            ];
+        }
         $config = $this->config();
         $this->grav['twig']->bla_inspection = $config['inspection_level'];
     }
@@ -101,7 +113,7 @@ class BrokenLinkAuditPlugin extends Plugin
         if ($this->grav['page']->template() != 'broken-links') {
             return;
         }
-        
+
         // Shouldn't use this if we're not in admin.
         $this->grav['admin']->enablePages();
         $pages = $this->grav['pages']->all();
@@ -132,6 +144,15 @@ class BrokenLinkAuditPlugin extends Plugin
         $this->saveInvalidLinks($bad_links);
     }
 
+    /**
+     * Function to force a reindex from your own plugins
+     */
+    public function onReIndex(): void
+    {
+        $this->auditor->reCreateIndex();
+    }
+
+
 
     /**
      * @param $content
@@ -158,32 +179,82 @@ class BrokenLinkAuditPlugin extends Plugin
         return $links;
     }
 
-    public function saveInvalidLinks($links)
+    /**
+     * Writes out link data to database.
+     *
+     * @param array $routes
+     * @return void
+     */
+    public function saveInvalidLinks($routes):void
     {
-        $filename = DATA_DIR . 'broken-link-audit/links';
-        $filename .= '.yaml';
-        $file = File::instance($filename);
-        // Reset report.
-        if ($file->exists()) {
-            $file->delete();
-        }
-        foreach ($links as $route => $link) {
-            if (!empty($link)) {
-                $data[$route] = $link;
-                $file->save(Yaml::dump($data));
+        foreach ($routes as $route => $link_types) {
+            if (!empty($link_types)) {
+                $data[$route] = $link_types;
+
+                foreach ($link_types as $type => $link_type){
+
+                    foreach ($link_type as $link){
+                        $link = preg_replace('/\s+/', '', $link);
+                        $where = [
+                            "AND" => [
+                                "route[=]" => $route,
+                                "link[=]" => $link,
+                                ]
+                            ];
+
+                            $row_data = [
+                                "route" => $route,
+                                "link_type" => $type,
+                                "link" => $link,
+                                "last_found" => time(),
+                            ];
+
+                            // Check if link exists
+                            $result = $this->auditor->pdo->has("per_route", $where);
+
+                            // If link already exists, update the epoch.
+                            if($result){
+                                $this->auditor->pdo->update("per_route", $row_data , $where);
+                            } else {
+                                $this->auditor->pdo->insert("per_route", $row_data);
+                            }
+
+                    }
+                }
             }
         }
     }
 
-    public function getInvalidLinks()
+    /**
+     * Returns links from database.
+     *
+     * @return void
+     */
+    public function getInvalidLinks():array
     {
-        $data = array("Run Report" => []);
-        $filename = DATA_DIR . 'broken-link-audit/links';
-        $filename .= '.yaml';
-        $file = File::instance($filename);
-        if (file_exists($filename)) {
-            $data = Yaml::parse($file->content());
+        $results = $this->auditor->pdo->select("per_route", [
+            "route",
+            "link_type",
+            "link",
+            "last_found",
+        ]);
+        $data = [];
+        foreach ($results as $row){
+            $route = $row['route'];
+            $link_type = $row['link_type'];
+            $link = $row['link'];
+            $last_found = $row['last_found'];
+            
+            if (!isset($data[$route])) {
+                $data[$route] = [];
+                $data[$route][$link_type] = [];
+            }
+            if (!isset($data[$route][$link_type])) {
+                $data[$route][$link_type] = [];
+            }
+            $data[$route][$link_type][] = $link;
         }
+
         return $data;
     }
 

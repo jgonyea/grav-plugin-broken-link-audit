@@ -11,28 +11,32 @@
 {% block content %}
     <style>
         .broken-links-page {
-            border-bottom: 2px dotted #349886;;
             padding-left: 2em;
+            margin-top: 2em;
         }
         .broken-links-page ul li {
             color: #111;
         }
         .broken-links-page ul {
-
             margin-top: 1rem;
             margin-bottom: 0 !important;
         }
-        div.broken-links-page:last-child {
-            border-bottom: none;
+        .broken-links-page h2{
+            padding: .5em 1em;
         }
         .broken-links-page a h2 {
-            margin: 0 !important;
+            margin: 0;
+            color: #fff;
+            background-color: #3d424e;
+        }
+        .broken-links-page a :hover {
+            color: #a0d6f1;
         }
         .broken-links-page h3 {
             font-size: 18px;
         }
-
     </style>
+
     {% set heading = "PLUGIN_BROKEN_LINK_AUDIT.PAGE.HEADING"|t ~ grav.twig.bla_inspection|camelize %}
     {% set broken_links_data = grav.twig.bla_links %}
 
@@ -41,7 +45,7 @@
         <div class="broken-links-page">
         {# Fake a Run Report button #}
         {% if page != 'Run Report' %}
-            <a href="{{ 'pages' ~ page }}" target="_blank"><h2>{{ page }}</h2></a>
+            <a href="{{ 'pages' ~ page }}" target="_blank"><h2>{{ page }} <i class="fa fa-external-link" aria-hidden="true"></i></h2></a>
         {% else %}
             <a href="broken-links" class="button"><h2>{{ page ~ type|first }}</h2></a>
         {% endif %}
