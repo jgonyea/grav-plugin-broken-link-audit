@@ -8,7 +8,10 @@ use Medoo\Medoo;
 
 class Auditor
 {
+    /** @var Medoo $pdo */
     public $pdo;
+
+    /** @var string $data_path */
     private $data_path;
 
     function __construct($options = [])
@@ -19,7 +22,7 @@ class Auditor
     }
 
 
-    public function count_routes():int
+    public function count_routes(): int
     {
         $query = 'select count (DISTINCT route) from "per_page"';
 
@@ -35,7 +38,8 @@ class Auditor
      *
      * @return void
      */
-    private function connect() :Medoo{
+    private function connect(): Medoo
+    {
         $grav = Grav::instance();
         $bla_config = $grav['config']['plugins']['broken-link-audit'];
 

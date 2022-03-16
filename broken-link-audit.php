@@ -91,10 +91,10 @@ class BrokenLinkAuditPlugin extends Plugin
     public function onTwigAdminTemplatePaths()
     {
         $this->grav['twig']->twig_paths[] = __DIR__ . '/admin/templates';
-        
+
         // Reads invalid links from db.
         $this->grav['twig']->bla_links = $this->getInvalidLinks();
-        
+
         // Offer Run Reports button if links returns empty.
         if (empty($this->grav['twig']->bla_links)){
             $this->grav['twig']->bla_links = [
@@ -108,40 +108,44 @@ class BrokenLinkAuditPlugin extends Plugin
     /**
      *  Build search
      */
-    public function onPagesInitialized()
+    public function onPagesInitialized(): void
     {
         if ($this->grav['page']->template() != 'broken-links') {
             return;
         }
 
-        // Shouldn't use this if we're not in admin.
-        $this->grav['admin']->enablePages();
-        $pages = $this->grav['pages']->all();
+        $scan = true;
+        if($scan){
 
-        $valid_routes = $this->grav['pages']->routes();
-        $valid_routes_keys = array_keys($valid_routes);
-        $inspection_level = $this->config()['inspection_level'];
+            // Shouldn't use this if we're not in admin.
+            $this->grav['admin']->enablePages();
+            $pages = $this->grav['pages']->all();
 
-        // Iterator for matching full routes with what page we're on.
-        $i = 0;
-        $all_links = [];
-        foreach ($pages as $key => $page) {
-            if ($inspection_level == 'raw') {
-                $content = $page->raw();
-            } elseif ($inspection_level == 'rendered') {
-                // todo: find rendered content of a page.
+            $valid_routes = $this->grav['pages']->routes();
+            $valid_routes_keys = array_keys($valid_routes);
+            $inspection_level = $this->config()['inspection_level'];
+
+            // Iterator for matching full routes with what page we're on.
+            $i = 0;
+            $all_links = [];
+            foreach ($pages as $key => $page) {
+                if ($inspection_level == 'raw') {
+                    $content = $page->raw();
+                } elseif ($inspection_level == 'rendered') {
+                    // todo: find rendered content of a page.
+                }
+
+                $all_links[$page->route()] = $this->findPageLinks(
+                    $content,
+                    $inspection_level
+                );
+                $i++;
             }
 
-            $all_links[$page->route()] = $this->findPageLinks(
-                $content,
-                $inspection_level
-            );
-            $i++;
+            $bad_links = $this->checkLinks($all_links, $inspection_level, $valid_routes);
+
+            $this->saveInvalidLinks($bad_links);
         }
-
-        $bad_links = $this->checkLinks($all_links, $inspection_level, $valid_routes);
-
-        $this->saveInvalidLinks($bad_links);
     }
 
     /**
@@ -161,7 +165,7 @@ class BrokenLinkAuditPlugin extends Plugin
      * @return array
      *   Array of links found within the content.
      */
-    public function findPageLinks($content, $inspection_level)
+    public function findPageLinks($content, $inspection_level): array|null
     {
         $links = null;
         if ($inspection_level == 'raw') {
@@ -194,7 +198,7 @@ class BrokenLinkAuditPlugin extends Plugin
                 foreach ($link_types as $type => $link_type){
 
                     foreach ($link_type as $link){
-                        $link = preg_replace('/\s+/', '', $link);
+                        $link = trim($link);
                         $where = [
                             "AND" => [
                                 "route[=]" => $route,
@@ -230,7 +234,7 @@ class BrokenLinkAuditPlugin extends Plugin
      *
      * @return void
      */
-    public function getInvalidLinks():array
+    public function getInvalidLinks(): array
     {
         $results = $this->auditor->pdo->select("per_route", [
             "route",
@@ -244,7 +248,7 @@ class BrokenLinkAuditPlugin extends Plugin
             $link_type = $row['link_type'];
             $link = $row['link'];
             $last_found = $row['last_found'];
-            
+
             if (!isset($data[$route])) {
                 $data[$route] = [];
                 $data[$route][$link_type] = [];
@@ -258,7 +262,7 @@ class BrokenLinkAuditPlugin extends Plugin
         return $data;
     }
 
-    public function checkLinks($links, $inspection_level, $valid_routes)
+    public function checkLinks($links, $inspection_level, $valid_routes): array
     {
         // todo: make this a direct call from find links rather than having to reparse the whole thing again.
         $bad_links = array();
@@ -292,6 +296,7 @@ class BrokenLinkAuditPlugin extends Plugin
                                     //$bad_links[$path][$type][$key] = $link;
                                     break;
                                 default:
+                                    $bad_links[$path][$type][$key] = $link;
                             }
                         }
                     }

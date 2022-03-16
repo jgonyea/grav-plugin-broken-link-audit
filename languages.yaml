@@ -9,7 +9,13 @@ en:
         HELP: Select level of inspection. Setting to Raw Markdown is faster, but may miss links created by Twig.
       CACHE: Cache Results
       CACHE_HELP: Cache results in user/data
+      REPORT_STORAGE:
+        HELP: Select the backend db storage method.
+        LABEL: Report Storage DB Model
+        SQLITE_DATA: SQLite (data folder)
+        SQLITE_MEM: SQLite (in-memory)
+        MYSQL: MariaDB/ MySQL
     PAGE:
-      HEADING: 'Broken Link Inspection Method: '
+      HEADING: 'Broken Link Inspection Method:'
       PAGE_LABEL: Page
       URL_LABEL: Destination

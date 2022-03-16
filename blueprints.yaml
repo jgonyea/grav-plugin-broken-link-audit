@@ -8,7 +8,7 @@ author:
   name: Jeremy Gonyea
   email: jeremy.gonyea@gmail.com
 homepage: https://github.com/jgonyea/grav-plugin-broken-link-audit
-keywords: grav, plugin, links, scan, seo, 
+keywords: grav, plugin, links, scan, seo,
 bugs: https://github.com/jgonyea/grav-plugin-broken-link-audit/issues
 docs: https://github.com/jgonyea/grav-plugin-broken-link-audit/blob/develop/README.md
 license: MIT
@@ -35,7 +35,25 @@ form:
       classes: fancy
       help: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.HELP
       label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.LABEL
-      default: raw
       options:
-        rendered: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.RENDERED
+        rendered:
+          value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.RENDERED
+          disabled: true
         raw: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.RAW
+      default: raw
+    report_storage:
+      type: select
+      size: medium
+      classes: fancy
+      help: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.HELP
+      label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.LABEL
+      options:
+        "sqlite":
+          value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.SQLITE_DATA
+        "memory":
+          disabled: true
+          value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.SQLITE_MEM
+        "mysql":
+          disabled: true
+          value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL
+      default: sqlite
