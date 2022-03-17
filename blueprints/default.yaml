@@ -1,0 +1,21 @@
+title: Default
+'@extends':
+    type: default
+    context: blueprints://pages
+form:
+  fields:
+    tabs:
+      type: tabs
+      active: 1
+      fields:
+        broken_link_audit:
+          type: tab
+          ordering@: 3
+          title: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.TITLE
+          fields:
+            header.title2:
+              type: text 
+              label: Stuff here
+            title2:
+              type: linkaudit
+              label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.EDIT_TAB.LABELs

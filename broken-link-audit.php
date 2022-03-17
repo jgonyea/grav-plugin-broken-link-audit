@@ -2,9 +2,11 @@
 namespace Grav\Plugin;
 
 use Composer\Autoload\ClassLoader;
+use Grav\Common\Grav;
 use Grav\Common\Plugin;
 use Grav\Plugin\BrokenLinkAudit\Auditor;
 use Pimple\Container;
+use RocketTheme\Toolbox\Event\Event;
 use RocketTheme\Toolbox\File\File;
 use Symfony\Component\Yaml\Yaml;
 
@@ -16,6 +18,11 @@ class BrokenLinkAuditPlugin extends Plugin
 {
     protected $route = 'broken-links';
     protected $auditor;
+
+    /** @var array */
+    public $features = [
+        'blueprints' => 0, // Use priority 0
+    ];
 
   /**
    * @return array
@@ -32,8 +39,9 @@ class BrokenLinkAuditPlugin extends Plugin
         return [
             'onPluginsInitialized' => [
                 ['autoload', 100000],
-                ['onPluginsInitialized', 0]
+                ['onPluginsInitialized', 0],
             ],
+            'onTwigLoader' => ['onTwigLoader', 0],
         ];
     }
 
@@ -56,9 +64,11 @@ class BrokenLinkAuditPlugin extends Plugin
         if ($this->isAdmin()) {
             $this->auditor = new Auditor();
             $this->enable([
-                'onTwigTemplatePaths' => ['onTwigAdminTemplatePaths', 0],
-                'onAdminMenu' => ['onAdminMenu', 0],
-                'onPagesInitialized' => ['onPagesInitialized', 0],
+                'onAdminMenu'           => ['onAdminMenu', 0],
+                'onTwigTemplatePaths'   => ['onTwigAdminTemplatePaths', 0],
+                'onTwigLoader'          => ['addAdminTwigTemplates', 0],
+                'onGetPageTemplates'    => ['onGetPageTemplates', 0],
+                'onPagesInitialized'    => ['onPagesInitialized', 0],
             ]);
         }
         return;
@@ -67,13 +77,15 @@ class BrokenLinkAuditPlugin extends Plugin
   /**
    * Add navigation item to the admin plugin
    */
-    public function onAdminMenu()
+    public function onAdminMenu(): void
     {
         // Set title of the admin page.
 
         $count = new Container([
             'updates' => 0,
-            'count' => function () { return $this->auditor->count_routes(); }
+            'count' => function () {
+                return $this->auditor->countRoutes();
+            }
         ]);
 
         $this->grav['twig']->plugins_hooked_nav['PLUGIN_BROKEN_LINK_AUDIT.ADMIN.TITLE'] = [
@@ -83,11 +95,35 @@ class BrokenLinkAuditPlugin extends Plugin
             'badge' => $count,
         ];
 
+        $options = [
+            'authorize' => 'taskReindexTNTSearch', //todo: fix this
+            'hint' => 'Reindexs the site for broken links',
+            'class' => 'tntsearch-reindex', //todo: fix this
+            'icon' => 'fa-chain-broken'
+        ];
+
+        $this->grav['twig']->plugins_quick_tray['Broken Link Audit'] = $options;
     }
 
-  /**
-   * Add plugin templates path
-   */
+    /**
+     * Add the Twig template paths to the Twig loader.
+     */
+    public function onTwigLoader(): void
+    {
+        $this->grav['twig']->addPath(__DIR__ . '/templates');
+    }
+
+    /**
+     * Add the current template paths to the admin Twig loader
+     */
+    public function addAdminTwigTemplates(): void
+    {
+        $this->grav['twig']->addPath($this->grav['locator']->findResource('theme://templates'));
+    }
+
+    /**
+     * Add plugin templates path
+     */
     public function onTwigAdminTemplatePaths()
     {
         $this->grav['twig']->twig_paths[] = __DIR__ . '/admin/templates';
@@ -96,13 +132,24 @@ class BrokenLinkAuditPlugin extends Plugin
         $this->grav['twig']->bla_links = $this->getInvalidLinks();
 
         // Offer Run Reports button if links returns empty.
-        if (empty($this->grav['twig']->bla_links)){
+        if (empty($this->grav['twig']->bla_links)) {
             $this->grav['twig']->bla_links = [
                 "Run Report" => []
             ];
         }
         $config = $this->config();
         $this->grav['twig']->bla_inspection = $config['inspection_level'];
+    }
+
+    /**
+     * Add blueprint directory to page templates.
+     */
+    public function onGetPageTemplates(Event $event): void
+    {
+        $types = $event->types;
+        $locator = $this->grav['locator'];
+        $types->scanBlueprints($locator->findResource('plugin://' . $this->name . '/blueprints'));
+        //$types->scanTemplates($locator->findResource('plugin://' . $this->name . '/templates'));
     }
 
     /**
@@ -114,38 +161,29 @@ class BrokenLinkAuditPlugin extends Plugin
             return;
         }
 
-        $scan = true;
-        if($scan){
+        // Todo: this really should be scanning each time.
+        // This should move to its own event-driven call vs everytime.
+        $this->scanPages();
+    }
 
-            // Shouldn't use this if we're not in admin.
-            $this->grav['admin']->enablePages();
-            $pages = $this->grav['pages']->all();
 
-            $valid_routes = $this->grav['pages']->routes();
-            $valid_routes_keys = array_keys($valid_routes);
-            $inspection_level = $this->config()['inspection_level'];
+    public static function scanPages(): void
+    {
+        $auditor = new Auditor();
 
-            // Iterator for matching full routes with what page we're on.
-            $i = 0;
-            $all_links = [];
-            foreach ($pages as $key => $page) {
-                if ($inspection_level == 'raw') {
-                    $content = $page->raw();
-                } elseif ($inspection_level == 'rendered') {
-                    // todo: find rendered content of a page.
-                }
+        $grav = Grav::instance();
 
-                $all_links[$page->route()] = $this->findPageLinks(
-                    $content,
-                    $inspection_level
-                );
-                $i++;
-            }
-
-            $bad_links = $this->checkLinks($all_links, $inspection_level, $valid_routes);
-
-            $this->saveInvalidLinks($bad_links);
+        /** @var Pages $pages */
+        $pages = $grav['pages'];
+        if (method_exists($pages, 'enablePages')) {
+            $pages->enablePages();
         }
+
+        foreach ($pages->all() as $key => $page) {
+            $auditor->scanPage($page);
+        }
+
+        //$bad_links = $this->checkLinks($all_links, $inspection_level, $valid_routes);
     }
 
     /**
@@ -156,8 +194,6 @@ class BrokenLinkAuditPlugin extends Plugin
         $this->auditor->reCreateIndex();
     }
 
-
-
     /**
      * @param $content
      * @param $inspection_level
@@ -167,10 +203,10 @@ class BrokenLinkAuditPlugin extends Plugin
      */
     public function findPageLinks($content, $inspection_level): array|null
     {
-        $links = null;
+        $links = [];
         if ($inspection_level == 'raw') {
             // Create list of matching URLS to patterns.
-            foreach ($this->raw_inspection_patterns() as $type => $page_pattern) {
+            foreach ($this->rawInspectionPatterns() as $type => $page_pattern) {
                 preg_match_all($page_pattern, $content, $matches);
 
                 if (count($matches[0]) > 0) {
@@ -178,55 +214,9 @@ class BrokenLinkAuditPlugin extends Plugin
                 }
             }
         } elseif ($inspection_level == 'rendered') {
-            $links = null;
+            $links = [];
         }
         return $links;
-    }
-
-    /**
-     * Writes out link data to database.
-     *
-     * @param array $routes
-     * @return void
-     */
-    public function saveInvalidLinks($routes):void
-    {
-        foreach ($routes as $route => $link_types) {
-            if (!empty($link_types)) {
-                $data[$route] = $link_types;
-
-                foreach ($link_types as $type => $link_type){
-
-                    foreach ($link_type as $link){
-                        $link = trim($link);
-                        $where = [
-                            "AND" => [
-                                "route[=]" => $route,
-                                "link[=]" => $link,
-                                ]
-                            ];
-
-                            $row_data = [
-                                "route" => $route,
-                                "link_type" => $type,
-                                "link" => $link,
-                                "last_found" => time(),
-                            ];
-
-                            // Check if link exists
-                            $result = $this->auditor->pdo->has("per_route", $where);
-
-                            // If link already exists, update the epoch.
-                            if($result){
-                                $this->auditor->pdo->update("per_route", $row_data , $where);
-                            } else {
-                                $this->auditor->pdo->insert("per_route", $row_data);
-                            }
-
-                    }
-                }
-            }
-        }
     }
 
     /**
@@ -243,8 +233,13 @@ class BrokenLinkAuditPlugin extends Plugin
             "last_found",
         ]);
         $data = [];
-        foreach ($results as $row){
-            $route = $row['route'];
+        foreach ($results as $row) {
+            // Change display of the home-aliased route.
+            if ($row['route'] == '/') {
+                $route = $this->grav['config']['system']['home']['alias'];
+            } else {
+                $route = $row['route'];
+            }
             $link_type = $row['link_type'];
             $link = $row['link'];
             $last_found = $row['last_found'];
@@ -268,7 +263,7 @@ class BrokenLinkAuditPlugin extends Plugin
         $bad_links = array();
         foreach ($links as $path => $page) {
             if ($inspection_level == 'raw') {
-                foreach ($this->raw_inspection_patterns() as $type => $pattern) {
+                foreach ($this->rawInspectionPatterns() as $type => $pattern) {
                     if (isset($page[ $type ])) {
                         foreach ($page[ $type ] as $key => $link) {
                             switch ($type) {
@@ -307,18 +302,10 @@ class BrokenLinkAuditPlugin extends Plugin
         return $bad_links;
     }
 
-    private function raw_inspection_patterns()
+    private function rawInspectionPatterns(): array
     {
         return array(
-        'page_relative'     =>  '/[^!]\[[^!].*\]\((?!http)[^\/].*\)/',
-        'page_absolute'     =>  '/[^!]\[[^!].*\]\(\/.*\)/',
-        'page_remote'       =>  '/[^!]\[[^!].*\]\(http.*\)/',
-
-        'combined'          =>  '/\[!\[.*\]\(.*\)\]\(.*\)/',
-
-        'media_relative'    =>  '/\![[^!].*\]\((?!http)(?!user)(?!theme)(?!plugin)[^\/].*\)/',
-        'media_absolute'    =>  '/[^\[]!\[[^!].*\]\(\/.*\)/',
-        'media_remote'      =>  '/[^\[]!\[[^!].*\]\(http.*\)/',
+        'raw'               =>  '/(\[[^][]*+(?:(?R)[^][]*)*+\])(\([^)(]*+(?:(?R)[^)(]*)*+\))/',
         );
     }
 }

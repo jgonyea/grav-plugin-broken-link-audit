@@ -15,6 +15,8 @@ en:
         SQLITE_DATA: SQLite (data folder)
         SQLITE_MEM: SQLite (in-memory)
         MYSQL: MariaDB/ MySQL
+      EDIT_TAB:
+        LABEL: Broken Links
     PAGE:
       HEADING: 'Broken Link Inspection Method:'
       PAGE_LABEL: Page

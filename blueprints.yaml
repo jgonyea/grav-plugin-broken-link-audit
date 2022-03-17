@@ -41,7 +41,7 @@ form:
           disabled: true
         raw: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.RAW
       default: raw
-    report_storage:
+    report_storage.type:
       type: select
       size: medium
       classes: fancy
@@ -50,9 +50,6 @@ form:
       options:
         "sqlite":
           value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.SQLITE_DATA
-        "memory":
-          disabled: true
-          value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.SQLITE_MEM
         "mysql":
           disabled: true
           value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL
