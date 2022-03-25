@@ -3,7 +3,6 @@ namespace Grav\Plugin\BrokenLinkAudit;
 
 use Grav\Common\Grav;
 use Grav\Common\Page\Page;
-use Grav\Plugin\BrokenLinkAudit\Recorder;
 use Medoo\Medoo;
 
 class Auditor
@@ -21,10 +20,14 @@ class Auditor
         $this->grav = Grav::instance();
 
         if (!isset($this->pdo)) {
-            $this->pdo = $this->connect();
-
-            // Ensure expected tables' structure exists.
-            $this->checkTables();
+            try {
+                // Ensure expected tables' structure exists.
+                $this->pdo = $this->connect();
+                $this->checkTables();
+            } catch (\Error|\PDOException $e) {
+                $this->grav['messages']->add('<a href="/admin/plugins/broken-link-audit">Broken Link Audit: ' . $e->getMessage() . '</a>', 'error');
+                return null;
+            }
         }
     }
 
@@ -43,7 +46,7 @@ class Auditor
      *
      * @return void
      */
-    private function connect(): Medoo
+    private function connect(): Medoo|null
     {
         $grav = Grav::instance();
         $bla_config = $grav['config']['plugins']['broken-link-audit'];
@@ -58,16 +61,35 @@ class Auditor
         }
 
         $db_opts = [];
-        switch ($bla_config['report_storage']['type']) {
+        switch ($bla_config['report_storage']['db']) {
             case 'mysql':
                 // todo: Add MySQL/ MariaDB options here.
-                $db_opts = [
+                if (isset($bla_config['report_storage']['host']) && isset($bla_config['report_storage']['username']) && isset($bla_config['report_storage']['password'])) {
+                    $db_opts = [
+                        // [required]
+                        'database_type' => 'mysql',
+                        'server' => $bla_config['report_storage']['host'],
+                        'database_name' => $bla_config['report_storage']['dbname'],
+                        'username' => $bla_config['report_storage']['username'],
+                        'password' => $bla_config['report_storage']['password'],
 
-                ];
+                        // [optional]
+                        'charset' => 'utf8mb4',
+                        'collation' => 'utf8mb4_general_ci',
+                        'port' => $bla_config['report_storage']['port'],
 
+                        // [optional] Enable logging, it is disabled by default for better performance.
+                        'logging' => false,
+                    ];
+
+                    isset($bla_config['report_storage']['prefix']) ? $db_opts['prefix'] =  $bla_config['report_storage']['prefix'] : '';
+                } else {
+                    throw new \Error('Misconfigured MySQL/ MariaDB database settings');
+                }
                 break;
 
             case 'sqlite':
+            default:
                 $locator = $grav['locator'];
                 $this->data_path = $locator->findResource('user://data', true) . '/broken-link-audit';
 
@@ -82,16 +104,6 @@ class Auditor
                     'database_file' => $this->data_path . "/" . $language_prefix . ".sqlite"
                 ];
                 break;
-
-            default:
-                $locator = $grav['locator'];
-                $this->data_path = $locator->findResource('user://data', true) . '/broken-link-audit';
-
-                // In memory only db.
-                $db_opts = [
-                    'database_type' => 'sqlite',
-                    'database_file' => ':memory:'
-                ];
         }
 
         $database = new Medoo($db_opts);
@@ -99,36 +111,43 @@ class Auditor
         return $database;
     }
 
+    /**
+     * Create data table.
+     *
+     * @return void
+     */
     public function checkTables(): void
     {
-        /** @var Medoo $pdo */
-        $this->pdo = $this->connect();
         try {
+            /** @var Medoo $pdo */
+            $this->pdo = $this->connect();
             $this->pdo->select("per_route", "*");
-        } catch (\Exception $e) {
-            $this->pdo->create("per_route", [
-                "route" => [
-                    "TEXT",
-                    "NOT NULL",
-                ],
-                "link_type" => [
-                    "TEXT",
-                    "NOT NULL",
-                ],
-                "link" => [
-                    "TEXT",
-                    "NOT NULL",
-                ],
-                "last_found" => [
-                    "NUMERIC",
-                    "NOT NULL",
-                ],
-            ]);
+        } catch (\PDOException $e) {
+            if ($e->getCode() == "42S02") {
+                $this->pdo->create("per_route", [
+                    "route" => [
+                        "TEXT",
+                        "NOT NULL",
+                    ],
+                    "link_type" => [
+                        "TEXT",
+                        "NOT NULL",
+                    ],
+                    "link" => [
+                        "TEXT",
+                        "NOT NULL",
+                    ],
+                    "last_found" => [
+                        "NUMERIC",
+                        "NOT NULL",
+                    ],
+                ]);
+            }
         }
     }
 
     /**
-     *
+     * Scans page for links.
      *
      * @param Page $page
      * @return void
@@ -138,6 +157,7 @@ class Auditor
         $bla_config = $this->grav['config']['plugins']['broken-link-audit'];
         $inspection_level = $bla_config['inspection_level'];
         $valid_routes = $this->grav['pages']->routes();
+        $this->clearLinks($page->route());
 
         if ($inspection_level == 'raw') {
             $content = $page->raw();
@@ -150,6 +170,20 @@ class Auditor
         } elseif ($inspection_level == 'rendered') {
             // todo: find rendered content of a page.
         }
+    }
+
+    /**
+     * Removes all links from db for $route.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function clearLinks($route): void
+    {
+        $where = [
+            "route[=]" => $route,
+        ];
+        $this->pdo->delete("per_route", $where);
     }
 
     /**
@@ -219,9 +253,11 @@ class Auditor
     private function rawInspectionPatterns(): array
     {
         return array(
-            'page_relative'     =>  '/[^!]\[[^!].*\]\((?!http)[^\/].*\)/',
-            'page_absolute'     =>  '/[^!]\[[^!].*\]\(\/.*\)/',
-            'page_remote'       =>  '/[^!]\[[^!].*\]\(http.*\)/',
+            'raw'               =>  '/(\[[^][]*+(?:(?R)[^][]*)*+\])(\([^)(]*+(?:(?R)[^)(]*)*+\))/',
+
+            'page_relative'     =>  '/[^!](\[[^][]*+(?:(?R)[^][]*)*+\])\((?!http)[^\/].*\)/',
+            'page_absolute'     =>  '/[^!](\[[^][]*+(?:(?R)[^][]*)*+\])(\([^)(]\/*+(?:(?R)[^)(]*)*+\))/',
+            'page_remote'       =>  '/[^!](\[[^][]*+(?:(?R)[^][]*)*+\])(\([^)(]http*+(?:(?R)[^)(]*)*+\))/',
 
             'combined'          =>  '/\[!\[.*\]\(.*\)\]\(.*\)/',
 
@@ -229,7 +265,6 @@ class Auditor
             'media_absolute'    =>  '/[^\[]!\[[^!].*\]\(\/.*\)/',
             'media_remote'      =>  '/[^\[]!\[[^!].*\]\(http.*\)/',
 
-            'raw'               =>  '/(\[[^][]*+(?:(?R)[^][]*)*+\])(\([^)(]*+(?:(?R)[^)(]*)*+\))/',
         );
     }
 }

@@ -12,9 +12,20 @@ en:
       REPORT_STORAGE:
         HELP: Select the backend db storage method.
         LABEL: Report Storage DB Model
-        SQLITE_DATA: SQLite (data folder)
-        SQLITE_MEM: SQLite (in-memory)
-        MYSQL: MariaDB/ MySQL
+        SQLITE_DATA: 
+          OPTION: SQLite (data folder)
+        MYSQL: 
+          OPTION: MariaDB/ MySQL
+          SERVER_LABEL: MySQL/ MariaDB Server
+          PORT_LABEL: Server Port
+          PORT_HELP: Default is 3306
+          DATABASE_LABEL: DB Name
+          USER_LABEL: DB Username
+          PASSWORD_LABEL: DB Password
+          PASSWORD_HELP: This will be stored in plaintext in the config/plugins folder
+          PREFIX_LABEL: Database table prefix
+          PREFIX_HELP: Optional table prefix
+
       EDIT_TAB:
         LABEL: Broken Links
     PAGE:

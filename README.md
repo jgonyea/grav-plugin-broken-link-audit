@@ -51,21 +51,19 @@ After installing the plugin, visit admin/broken-links (or click on the new Admin
 
 ## Known limitations
 
-- Anchor links within a page are not checked.
+- Anchor links within a markdown page are not checked.
 - Links within twig are not checked.
 
 ## To Do
 
-- Standardize terminology of broken links/ broken link/ etc.
-- Complete the languages.yaml file.
-- If possible, add feature to admin/tools.
 - Add Rendered content processing.
-- Add a CLI interface to generate the broken links list.
-- Add ability to update a link from report.
-- Possibly leverage 404 log via logerrors plugin.
+- Possibly leverage 404 log via logerrors plugin?
 - Create new report based grouped not by pages, but on the broken referenced link
+- CLI instructions
+- Add auditing admin permissions.
+- Wire up quick-tray-icon to perform audit.
+- Update
 
+## Thanks and Acknowledgements
 
-## Thanks
-
-I cribbed quite a bit from the TNTSearch plugin's scheduling.
+I cribbed quite a bit from the TNTSearch plugin's scheduling and overall plugin structure.

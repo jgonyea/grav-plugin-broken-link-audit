@@ -1,0 +1,25 @@
+.broken-links-page {
+    padding-left: 2em;
+    margin-top: 2em;
+}
+.broken-links-page ul li {
+    color: #111;
+}
+.broken-links-page ul {
+    margin-top: 1rem;
+    margin-bottom: 0 !important;
+}
+.broken-links-page h2{
+    padding: .5em 1em;
+}
+.broken-links-page a h2 {
+    margin: 0;
+    color: #fff;
+    background-color: #3d424e;
+}
+.broken-links-page a :hover {
+    color: #a0d6f1;
+}
+.broken-links-page h3 {
+    font-size: 18px;
+}

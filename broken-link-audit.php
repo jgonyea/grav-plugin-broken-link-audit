@@ -63,13 +63,17 @@ class BrokenLinkAuditPlugin extends Plugin
     {
         if ($this->isAdmin()) {
             $this->auditor = new Auditor();
-            $this->enable([
-                'onAdminMenu'           => ['onAdminMenu', 0],
-                'onTwigTemplatePaths'   => ['onTwigAdminTemplatePaths', 0],
-                'onTwigLoader'          => ['addAdminTwigTemplates', 0],
-                'onGetPageTemplates'    => ['onGetPageTemplates', 0],
-                'onPagesInitialized'    => ['onPagesInitialized', 0],
-            ]);
+            if (null !== ($this->auditor->pdo)) {
+                $this->enable([
+                    'onAdminMenu'           => ['onAdminMenu', 0],
+                    'onAdminAfterSave'      => ['onAdminAfterSave', 0],
+                    'onAdminTaskExecute'    => ['onAdminTaskExecute', 0],
+                    'onTwigTemplatePaths'   => ['onTwigAdminTemplatePaths', 0],
+                    'onTwigLoader'          => ['addAdminTwigTemplates', 0],
+                    'onGetPageTemplates'    => ['onGetPageTemplates', 0],
+                    'onPagesInitialized'    => ['onPagesInitialized', 0],
+                ]);
+            }
         }
         return;
     }
@@ -95,14 +99,65 @@ class BrokenLinkAuditPlugin extends Plugin
             'badge' => $count,
         ];
 
-        $options = [
+        $this->grav['twig']->plugins_quick_tray['Broken Link Audit'] = [
             'authorize' => 'taskReindexTNTSearch', //todo: fix this
             'hint' => 'Reindexs the site for broken links',
-            'class' => 'tntsearch-reindex', //todo: fix this
+            'class' => 'brokenLinkAudit-rescan', //todo: fix this
             'icon' => 'fa-chain-broken'
         ];
+    }
 
-        $this->grav['twig']->plugins_quick_tray['Broken Link Audit'] = $options;
+    /**
+     * Rescan a page after saving.
+     *
+     * @return void
+     */
+    public function onAdminAfterSave(Event $event): void
+    {
+        $page = $event['object'];
+        if (method_exists($page, 'template')) {
+            $this->auditor->scanPage($page);
+        }
+    }
+
+    /**
+     * Handle the ReScan task from the admin.
+     * Todo: fix this.
+     *
+     * @param Event $e
+     */
+    public function onAdminTaskExecute(Event $e): void
+    {
+        if ($e['method'] === 'taskRescanBrokenLinkAudit') {
+            $controller = $e['controller'];
+
+            header('Content-type: application/json');
+
+            if (!$controller->authorizeTask('reindexTNTSearch', ['admin.configuration', 'admin.super'])) {
+                $json_response = [
+                    'status'  => 'error',
+                    'message' => '<i class="fa fa-warning"></i> Index not created',
+                    'details' => 'Insufficient permissions to reindex the search engine database.'
+                ];
+                echo json_encode($json_response);
+                exit;
+            }
+
+            // disable warnings
+            error_reporting(1);
+            // disable execution time
+            set_time_limit(0);
+
+            list($status, $msg, $output) = static::rescanJob();
+
+            $json_response = [
+                'status'  => $status ? 'success' : 'error',
+                'message' => $msg
+            ];
+
+            echo json_encode($json_response);
+            exit;
+        }
     }
 
     /**
@@ -126,10 +181,24 @@ class BrokenLinkAuditPlugin extends Plugin
      */
     public function onTwigAdminTemplatePaths()
     {
+        // Check if we're on admin, editing a page.
+        $current_admin_route = $this->grav['admin']->page()->route();
+        if (isset($current_admin_route)) {
+            $route = $current_admin_route;
+            $home = $this->grav['config']['system']['home']['alias'];
+            if ($route == $home) {
+                $route = "/";
+            }
+        } else {
+            $route = null;
+        }
+
         $this->grav['twig']->twig_paths[] = __DIR__ . '/admin/templates';
 
         // Reads invalid links from db.
-        $this->grav['twig']->bla_links = $this->getInvalidLinks();
+        if (!isset($this->grav['twig']->bla_links)) {
+            $this->grav['twig']->bla_links = $this->getInvalidLinks($route);
+        }
 
         // Offer Run Reports button if links returns empty.
         if (empty($this->grav['twig']->bla_links)) {
@@ -161,9 +230,6 @@ class BrokenLinkAuditPlugin extends Plugin
             return;
         }
 
-        // Todo: this really should be scanning each time.
-        // This should move to its own event-driven call vs everytime.
-        $this->scanPages();
     }
 
 
@@ -187,7 +253,7 @@ class BrokenLinkAuditPlugin extends Plugin
     }
 
     /**
-     * Function to force a reindex from your own plugins
+     * Function to force a reindex.
      */
     public function onReIndex(): void
     {
@@ -222,16 +288,24 @@ class BrokenLinkAuditPlugin extends Plugin
     /**
      * Returns links from database.
      *
-     * @return void
+     * @param string $route
+     * @return array
      */
-    public function getInvalidLinks(): array
+    public function getInvalidLinks($route = null): array
     {
+        if (isset($route)) {
+            $where = [
+                "route[=]" => $route
+            ];
+        } else {
+            $where = null;
+        }
         $results = $this->auditor->pdo->select("per_route", [
             "route",
             "link_type",
             "link",
             "last_found",
-        ]);
+        ], $where);
         $data = [];
         foreach ($results as $row) {
             // Change display of the home-aliased route.
@@ -302,10 +376,9 @@ class BrokenLinkAuditPlugin extends Plugin
         return $bad_links;
     }
 
-    private function rawInspectionPatterns(): array
+    private static function rescanJob(): array
     {
-        return array(
-        'raw'               =>  '/(\[[^][]*+(?:(?R)[^][]*)*+\])(\([^)(]*+(?:(?R)[^)(]*)*+\))/',
-        );
+        $response = [];
+        return $response;
     }
 }

@@ -41,7 +41,7 @@ form:
           disabled: true
         raw: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.INSPECTION_LEVEL.RAW
       default: raw
-    report_storage.type:
+    report_storage.db:
       type: select
       size: medium
       classes: fancy
@@ -49,8 +49,43 @@ form:
       label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.LABEL
       options:
         "sqlite":
-          value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.SQLITE_DATA
+          value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.SQLITE_DATA.OPTION
         "mysql":
-          disabled: true
-          value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL
+          disabled: false
+          value: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.OPTION
       default: sqlite
+    mysql_conditional:
+      type: conditional
+      condition: "config.plugins['broken-link-audit']['report_storage']['db'] == 'mysql'"
+      fields:
+        report_storage.host:
+          type: text
+          label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.SERVER_LABEL
+          default: mysql
+        report_storage.port:
+          type: number
+          label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.PORT_LABEL
+          help: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.PORT_HELP
+          validate:
+            min: 1024
+            max: 65535
+          default: 3306
+        report_storage.dbname:
+          type: text
+          label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.DATABASE_LABEL
+          default: mydatabase
+        report_storage.username:
+          type: text
+          label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.USER_LABEL
+          size: medium
+        report_storage.password:
+          type: text
+          label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.PASSWORD_LABEL
+          help: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.PASSWORD_HELP
+          size: medium
+        report_storage.prefix:
+          type: password
+          label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.PREFIX_LABEL
+          help: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.REPORT_STORAGE.MYSQL.PREFIX_HELP
+          size: medium
+          default: ''

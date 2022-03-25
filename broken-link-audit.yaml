@@ -1,5 +1,4 @@
 enabled: true
-cache_results: false
 inspection_level: raw
 report_storage:
-  type: sqlite
+  db: sqlite
