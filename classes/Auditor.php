@@ -123,7 +123,7 @@ class Auditor
             $this->pdo = $this->connect();
             $this->pdo->select("per_route", "*");
         } catch (\PDOException $e) {
-            if ($e->getCode() == "42S02") {
+            if ($e->getCode() == "42S02" || $e ->getCode() == "HY000") {
                 $this->pdo->create("per_route", [
                     "route" => [
                         "TEXT",
