@@ -15,6 +15,8 @@ class Auditor
 
     private $grav;
 
+    private $language;
+
     public function __construct($options = [])
     {
         $this->grav = Grav::instance();
@@ -30,7 +32,6 @@ class Auditor
             }
         }
     }
-
 
     public function countRoutes(): int
     {
@@ -48,10 +49,9 @@ class Auditor
      */
     private function connect(): Medoo|null
     {
-        $grav = Grav::instance();
-        $bla_config = $grav['config']['plugins']['broken-link-audit'];
+        $bla_config = $this->grav['config']['plugins']['broken-link-audit'];
 
-        $language = $grav['language'];
+        $language = $this->grav['language'];
         $language_prefix = "en";
         if ($language->enabled()) {
             $active = $language->getActive();
@@ -90,13 +90,13 @@ class Auditor
 
             case 'sqlite':
             default:
-                $locator = $grav['locator'];
+                $locator = $this->grav['locator'];
                 $this->data_path = $locator->findResource('user://data', true) . '/broken-link-audit';
 
                 // Create data folder.
                 if (!file_exists($this->data_path)) {
-                    mkdir($this->data_path);
-                    $grav['log']->notice('Created Broken Link Audit data folder.');
+                    mkdir($this->data_path, 0770, true);
+                    $this->grav['log']->notice('Missing Broken Link Audit data.  Created new Broken Link Audit data folder at "' . $this->data_path . '".');
                 }
 
                 $db_opts = [
@@ -163,8 +163,10 @@ class Auditor
             $content = $page->raw();
             // Get all links on page.
             $links = $this->findRawPageLinks($content);
+
             // Find bad links.
-            $bad_links = $links;
+            $bad_links = $this->findInvalidLinks($links, $page->route());
+
             // Save bad links to db.
             $this->saveInvalidLinks($page->route(), $bad_links);
         } elseif ($inspection_level == 'rendered') {
@@ -194,35 +196,38 @@ class Auditor
      */
     public function saveInvalidLinks($route, $links):void
     {
-        if (!empty($links)) {
-            $data[$route] = $links;
+        if (empty($links)) {
+            return;
+        }
 
-            foreach ($links as $type => $link_type) {
-                foreach ($link_type as $link) {
-                    $link = trim($link);
-                    $where = [
-                        "AND" => [
-                            "route[=]" => $route,
-                            "link[=]" => $link,
-                            ]
-                        ];
+        $data[$route] = $links;
 
-                        $row_data = [
-                            "route" => $route,
-                            "link_type" => $type,
-                            "link" => $link,
-                            "last_found" => time(),
-                        ];
+        $bla_config = $this->grav['config']['plugins']['broken-link-audit'];
+        foreach ($links as $type => $link_type) {
+            foreach ($link_type as $link) {
+                $link = trim($link);
+                $where = [
+                "AND" => [
+                "route[=]" => $route,
+                "link[=]" => $link,
+                ]
+                ];
 
-                        // Check if link exists in database.
-                        $result = $this->pdo->has("per_route", $where);
+                $row_data = [
+                "route" => $route,
+                "link_type" => $type,
+                "link" => $link,
+                "last_found" => time(),
+                ];
 
-                        // If link already exists, update the epoch.
-                        if ($result) {
-                            $this->pdo->update("per_route", $row_data, $where);
-                        } else {
-                            $this->pdo->insert("per_route", $row_data);
-                        }
+              // Check if link exists in database.
+                $result = $this->pdo->has("per_route", $where);
+
+              // If link already exists, update the epoch.
+                if ($result) {
+                    $this->pdo->update("per_route", $row_data, $where);
+                } else {
+                    $this->pdo->insert("per_route", $row_data);
                 }
             }
         }
@@ -242,29 +247,74 @@ class Auditor
         foreach ($this->rawInspectionPatterns() as $type => $page_pattern) {
             preg_match_all($page_pattern, $content, $matches);
 
-            if (count($matches[0]) > 0) {
-                $links[$type] = $matches[0];
+            if (count($matches[2]) > 0) {
+                $links[$type] = $matches[2];
             }
         }
 
         return $links;
     }
 
+
+    private function findInvalidLinks($full_links, $route): array
+    {
+        $bla_config = $this->grav['config']['plugins']['broken-link-audit'];
+        $base_url = $bla_config['base_url'];
+        $invalid_links = [];
+        $valid_links = [];
+
+      // Process each link type.
+        foreach ($full_links as $type => $links) {
+            if ("stream" === $type) {
+                continue;
+            }
+
+          // Process each link.
+            foreach ($links as $link) {
+                if ('page_remote' === $type) {
+                  $url = $link;
+                } else if ('page_relative' === $type) {
+                    $url = $base_url . '/' . $link;
+                } else if ('page_absolute_relative' == $type) {
+                    if (substr($link, 0, 1) == '/') {
+                        $url = $base_url . $link;
+                    } else {
+                        $url = $base_url . '/' . $link;
+                    }
+                }
+
+              // Curl setup.
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_NOBODY, true);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Avoid SSL verification issues
+
+                $result = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $error = curl_error($ch);
+                curl_close($ch);
+                if ($httpCode < 200 || $httpCode >= 400) {
+                    $invalid_links[$type][] = $link;
+                } else {
+                    $valid_links[$type][] = $link;
+                }
+            }
+        }
+
+        return $invalid_links;
+    }
+
     private function rawInspectionPatterns(): array
     {
+        # Raw has to be first.
         return array(
-            'raw'               =>  '/(\[[^][]*+(?:(?R)[^][]*)*+\])(\([^)(]*+(?:(?R)[^)(]*)*+\))/',
-
-            'page_relative'     =>  '/[^!](\[[^][]*+(?:(?R)[^][]*)*+\])\((?!http)[^\/].*\)/',
-            'page_absolute'     =>  '/[^!](\[[^][]*+(?:(?R)[^][]*)*+\])(\([^)(]\/*+(?:(?R)[^)(]*)*+\))/',
-            'page_remote'       =>  '/[^!](\[[^][]*+(?:(?R)[^][]*)*+\])(\([^)(]http*+(?:(?R)[^)(]*)*+\))/',
-
-            'combined'          =>  '/\[!\[.*\]\(.*\)\]\(.*\)/',
-
-            'media_relative'    =>  '/\![[^!].*\]\((?!http)(?!user)(?!theme)(?!plugin)[^\/].*\)/',
-            'media_absolute'    =>  '/[^\[]!\[[^!].*\]\(\/.*\)/',
-            'media_remote'      =>  '/[^\[]!\[[^!].*\]\(http.*\)/',
-
+          #'raw'                       =>  '/\[(.*?)\]\(([^)]+)\)/i',
+          'page_relative'             =>  '/\[(.*?)\]\((?!http|https|#|user|theme|plugin|\/)([^)]+)\)/i',
+          'page_absolute_relative'    =>  '/\[(.*?)\]\((?!a-z|0-9|\.)(?!http|https|#|user|theme|plugin)([^)]+)\)/i',
+          'page_remote'               =>  '/\[(.*?)\]\((https?:\/\/[^)]+)\)/i',
+          'stream'                    =>  '/\[(.*?)\]\((?=user|theme|plugin)([^)]+)\)/i',
         );
     }
 }

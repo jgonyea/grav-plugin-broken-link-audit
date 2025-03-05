@@ -14,7 +14,7 @@ docs: https://github.com/jgonyea/grav-plugin-broken-link-audit/blob/develop/READ
 license: MIT
 
 dependencies:
-    - { name: grav, version: '>=1.6.21' }
+    - { name: grav, version: '>=1.7' }
 
 form:
   validation: loose
@@ -29,6 +29,11 @@ form:
         0: PLUGIN_ADMIN.DISABLED
       validate:
         type: bool
+    base_url:
+      type: text
+      size: medium
+      help: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.BASE_URL.HELP
+      label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.BASE_URL.LABEL
     inspection_level:
       type: select
       size: medium

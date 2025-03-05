@@ -21,34 +21,31 @@ class BrokenLinkAuditPlugin extends Plugin
 
     /** @var array */
     public $features = [
-        'blueprints' => 0, // Use priority 0
+        'blueprints' => 0,
     ];
 
-  /**
-   * @return array
-   *
-   * The getSubscribedEvents() gives the core a list of events
-   *     that the plugin wants to listen to. The key of each
-   *     array section is the event that the plugin listens to
-   *     and the value (in the form of an array) contains the
-   *     callable (or function) as well as the priority. The
-   *     higher the number the higher the priority.
-   */
-    public static function getSubscribedEvents()
+    /**
+     * @return array
+     *
+     * The getSubscribedEvents() gives the core a list of events
+     *     that the plugin wants to listen to. The key of each
+     *     array section is the event that the plugin listens to
+     *     and the value (in the form of an array) contains the
+     *     callable (or function) as well as the priority. The
+     *     higher the number the higher the priority.
+     */
+    public static function getSubscribedEvents(): array
     {
         return [
             'onPluginsInitialized' => [
-                ['autoload', 100000],
-                ['onPluginsInitialized', 0],
-            ],
-            'onTwigLoader' => ['onTwigLoader', 0],
+                ['onPluginsInitialized', 0]
+            ]
         ];
     }
 
-
     /**
-     * [onPluginsInitialized:100000] Composer autoload.
-     *is
+     * Composer autoload
+     *
      * @return ClassLoader
      */
     public function autoload(): ClassLoader

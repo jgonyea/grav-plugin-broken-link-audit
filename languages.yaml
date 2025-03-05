@@ -7,14 +7,17 @@ en:
         RAW: 'Raw Markdown Content (Faster)'
         RENDERED: 'Rendered Content (Slower)'
         HELP: Select level of inspection. Setting to Raw Markdown is faster, but may miss links created by Twig.
+      BASE_URL:
+        HELP: Used to check routing of relative URLS.
+        LABEL: Default Base URL
       CACHE: Cache Results
       CACHE_HELP: Cache results in user/data
       REPORT_STORAGE:
         HELP: Select the backend db storage method.
         LABEL: Report Storage DB Model
-        SQLITE_DATA: 
+        SQLITE_DATA:
           OPTION: SQLite (data folder)
-        MYSQL: 
+        MYSQL:
           OPTION: MariaDB/ MySQL
           SERVER_LABEL: MySQL/ MariaDB Server
           PORT_LABEL: Server Port

@@ -21,8 +21,11 @@ To install this plugin, just download the zip version of this repository and unz
 You should now have all the plugin files under
 
     /your/site/grav/user/plugins/broken-link-audit
-	
+
 > NOTE: This plugin is a modular component for Grav which requires [Grav](http://github.com/getgrav/grav) and the [Error](https://github.com/getgrav/grav-plugin-error) and [Problems](https://github.com/getgrav/grav-plugin-problems) to operate.
+
+### OS Dependencies
+The `php-sqlite3` is required if you plan on using the default sqlite database engine.
 
 ## Configuration
 
