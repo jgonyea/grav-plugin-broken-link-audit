@@ -7,6 +7,8 @@ use Grav\Plugin\BrokenLinkAuditPlugin;
 use Grav\Plugin\BrokenLinkAudit\Auditor;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Console\Output\ConsoleOutput;
 
 /**
  * Class AuditCommand
@@ -91,8 +93,15 @@ class AuditCommand extends ConsoleCommand
             }
 
             // Process page(s).
+            $output = new ConsoleOutput();
+            ProgressBar::setFormatDefinition('custom', ' %current%/%max% -- %message%');
+            $progressBar = new ProgressBar($output, count($pages->all()));
+            $progressBar->setFormat('custom');
+            $progressBar->start();
             foreach ($pages->all() as $key => $page) {
+                $progressBar->setMessage('Processing links on ' . $page->route());
                 $auditor->scanPage($page);
+                $progressBar->advance();
             }
         } else if ($this->options['route']) {
             $pages = $grav['pages'];
@@ -108,5 +117,6 @@ class AuditCommand extends ConsoleCommand
 
             $auditor->scanPage($page);
         }
+        $this->output->writeln("\nScan Complete");
     }
 }

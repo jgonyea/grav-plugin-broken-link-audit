@@ -88,7 +88,7 @@ class ClearCommand extends ConsoleCommand
                 $this->output->writeln('<info>All links cleared from the "links" table.</info>');
 
                 // Clear the 'per_route' table.
-                $auditor->pdo->delete('per_route', ['link_id'], []);
+                $auditor->pdo->delete('per_route', []);
                 $this->output->writeln('<info>All links cleared from the "per_route" table.</info>');
 
                 // Clear auto-increment value.

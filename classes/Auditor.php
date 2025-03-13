@@ -6,7 +6,6 @@ use Grav\Common\Grav;
 use Grav\Common\Page\Page;
 use Grav\Plugin\BrokenLinkAudit\AuditLink;
 use Medoo\Medoo;
-use Symfony\Component\Console\Helper\ProgressBar;
 
 class Auditor
 {
@@ -294,38 +293,61 @@ class Auditor
                 $expiration = new DateTime();
                 $expiration->setTimestamp($results[0]['expiration']);
                 $link->setExpiration($expiration);
+                $id = $results[0]['id'];
 
                 if ($link->isExpired()){
-                    $link->getStatus(true);
+                    $this->pdo->update(
+                        "links",
+                        [
+                            "full_url" => $full_url,
+                            "last_status" => $link->getStatus(true),
+                            "expiration" => $link->getExpiration()->format('U'),
+                            "link_type" => $results[0]['link_type']
+
+                        ],
+                        ["id" => $id]
+                    );
                 } else {
                     $link->setStatus($results[0]['last_status']);
                 }
 
-                $this->pdo->update(
-                    "links",
-                    [
-                        "full_url" => $full_url,
-                        "last_status" => $link->getStatus(),
-                        "expiration" => $results[0]['expiration'],
-                        "link_type" => $results[0]['link_type']
 
-                    ],
-                    ["id" => $results[0]['id']]
-                );
             } else {
                 // Write to links table.
+                $status = $link->getStatus();
                 $this->pdo->insert(
                     "links",
                     [
                         "full_url" => $link->getLink(),
-                        "last_status" => $link->getStatus(),
+                        "last_status" => $status,
                         "link_type" => $link->getType(),
                         "expiration" => $link->getExpiration()->format('U'),
                     ],
                 );
+                // Last insert row id.
+                $id = $this->pdo->id();
+            }
+
+            // per_route table entries.
+            $result = $this->pdo->select(
+                "per_route",
+                ["page_route", "id"],
+                [
+                    "page_route" => $route,
+                    "link_id" => $id
+                ]
+            );
+            if (!$result){
+                // insert entry into table.
+                $this->pdo->insert(
+                    "per_route",
+                    [
+                        "page_route" => $route,
+                        "link_id" => $id
+                    ]
+                );
             }
         }
-        $here = true;
     }
 
     /**
