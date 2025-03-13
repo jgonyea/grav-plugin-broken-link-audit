@@ -5,6 +5,7 @@ use Composer\Autoload\ClassLoader;
 use Grav\Common\Grav;
 use Grav\Common\Plugin;
 use Grav\Plugin\BrokenLinkAudit\Auditor;
+use Grav\Plugin\BrokenLinkAudit\AuditLink;
 use Pimple\Container;
 use RocketTheme\Toolbox\Event\Event;
 use RocketTheme\Toolbox\File\File;
@@ -113,6 +114,10 @@ class BrokenLinkAuditPlugin extends Plugin
     {
         $page = $event['object'];
         if (method_exists($page, 'template')) {
+
+            // TODO: Clear current page's links.
+            $this->auditor->clearLinks($page->route());
+
             $this->auditor->scanPage($page);
         }
     }
@@ -229,7 +234,6 @@ class BrokenLinkAuditPlugin extends Plugin
 
     }
 
-
     public static function scanPages(): void
     {
         $auditor = new Auditor();
@@ -288,88 +292,55 @@ class BrokenLinkAuditPlugin extends Plugin
      */
     public function getInvalidLinks($route = null): array
     {
-        return [];
+        $data = [];
+
         if (isset($route)) {
             $where = [
-                "route[=]" => $route
+                "per_route.page_route[=]" => $route,
+                "last_status[><]" => [200, 399],
             ];
         } else {
-            $where = null;
+            $where = ["last_status[><]" => [200, 399],];
         }
-        $results = $this->auditor->pdo->select("per_route", [
-            "route",
-            "link_type",
-            "link",
-            "last_checked",
-        ], $where);
-        $data = [];
+
+        $table1 = "per_route";
+        $join = [
+            "[<>]links" => ["link_id" => "id"]
+        ];
+        $columns = ["links.id", "links.full_url", "links.last_status", "links.link_type", "links.expiration","per_route.page_route"];
+
+        $results = $this->auditor->pdo->select(
+            $table1,
+            $join,
+            $columns,
+            $where
+        );
+
         foreach ($results as $row) {
+            $base_url = $this->grav['config']['plugins']['broken-link-audit']['base_url'];
+            $link = new AuditLink($row['full_url'], $row['link_type'], $base_url);
+            $link->setStatus($row['last_status']);
+            $link->setExpiration($row['expiration']);
+
             // Change display of the home-aliased route.
-            if ($row['route'] == '/') {
+            if ($row['page_route'] == '/') {
                 $route = $this->grav['config']['system']['home']['alias'];
             } else {
-                $route = $row['route'];
+                $route = $row['page_route'];
             }
-            $link_type = $row['link_type'];
-            $link = $row['link'];
-            $last_checked = $row['last_checked'];
 
-            if (!isset($data[$route])) {
+
+            if (!array_key_exists($route, $data )) {
                 $data[$route] = [];
-                $data[$route][$link_type] = [];
+                $data[$route][$link->getType()] = [];
             }
-            if (!isset($data[$route][$link_type])) {
-                $data[$route][$link_type] = [];
+            if (!isset($data[$route][$link->getType()])) {
+                $data[$route][$link->getType()] = [];
             }
-            $data[$route][$link_type][] = $link;
+            $data[$route][$link->getType()][] = $link->getLink();
         }
 
         return $data;
-    }
-
-    public function checkLinks($links, $inspection_level, $valid_routes): array
-    {
-        // TODO: make this a direct call from find links rather than having to reparse the whole thing again.
-        $bad_links = array();
-        foreach ($links as $path => $page) {
-            if ($inspection_level == 'raw') {
-                foreach ($this->rawInspectionPatterns() as $type => $pattern) {
-                    if (isset($page[ $type ])) {
-                        foreach ($page[ $type ] as $key => $link) {
-                            switch ($type) {
-                                case 'page_relative':
-                                    $bad_links[$path][$type][$key] = $link;
-                                    break;
-                                case 'page_absolute':
-                                    $bad_links[$path][$type][$key] = $link;
-                                    break;
-                                case 'page_remote':
-                                    // Don't return remote links.
-                                    $bad_links[$path][$type][$key] = $link;
-                                    break;
-                                case 'combined':
-                                    $bad_links[$path][$type][$key] = $link;
-                                    break;
-                                case 'media_relative':
-                                    $bad_links[$path][$type][$key] = $link;
-                                    break;
-                                case 'media_absolute':
-                                    $bad_links[$path][$type][$key] = $link;
-                                    break;
-                                case 'media_remote':
-                                    // Don't return remote links.
-                                    //$bad_links[$path][$type][$key] = $link;
-                                    break;
-                                default:
-                                    $bad_links[$path][$type][$key] = $link;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return $bad_links;
     }
 
     private static function rescanJob(): array

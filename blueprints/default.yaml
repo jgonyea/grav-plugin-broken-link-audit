@@ -14,8 +14,5 @@ form:
           title: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.TITLE
           fields:
             header.title2:
-              type: text
-              label: Stuff here
-            title2:
-              type: linkaudit
-              label: PLUGIN_BROKEN_LINK_AUDIT.ADMIN.EDIT_TAB.LABEL
+              type: broken-tab
+

@@ -18,7 +18,7 @@ class AuditLink {
         $this->baseURL = $baseURL;
         $this->link = $link;
         $this->type = $type;
-        $this->expiration = 0;
+        $this->expiration = new DateTime('@0');
         $this->status = 0;
     }
 
@@ -63,7 +63,7 @@ class AuditLink {
             curl_close($ch);
             $this->setStatus($httpCode);
             $expiration = new DateTime('now');
-            $expiration->modify('+1 second');
+            $expiration->modify('+1 month');
             $this->setExpiration($expiration);
         }
 

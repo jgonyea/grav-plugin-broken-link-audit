@@ -213,9 +213,6 @@ class Auditor
                     $auditLinks[] = new AuditLink($link, $type, $bla_config['base_url']);
                 }
             }
-
-
-
         } elseif ($inspection_level == 'rendered') {
             // TODO: find rendered content of a page.
         }
@@ -235,11 +232,34 @@ class Auditor
         // TODO: Only clear expired links.
 
         $where = [
-            "route[=]" => $route,
+            "page_route[=]" => $route,
         ];
 
-        // TODO: search for link id's, then delete from table?
-        $this->pdo->delete("per_route", $where);
+        // TODO: search for link id's at current route, then delete from tables.
+        $results = $this->pdo->select("per_route", ['page_route','@link_id'], $where);
+
+        if(!$results){
+            return;
+        }
+        foreach ($results as $result){
+            $this->pdo->delete(
+                "per_route",
+                [
+                    "page_route" => $route,
+                    "link_id" => $result['link_id']
+                ]
+            );
+
+            $count = $this->pdo->select("per_route", ['page_route','@link_id'], ["link_id" => $result['link_id']]);
+            if ($count){
+            } else {
+                $this->pdo->delete(
+                    "links",
+                    ["id" => $result['link_id']]
+                );
+            }
+        }
+
     }
 
     /**
@@ -274,7 +294,7 @@ class Auditor
 
         //TODO: if dbLinks returns results, cull away non-existant ones between $dbLinks and $links
 
-        foreach ($links as $link){
+        foreach ($links as $key => $link){
             // Check if link exists
             $full_url = $link->getLink();
             $results = $this->pdo->select(
@@ -331,7 +351,7 @@ class Auditor
             // per_route table entries.
             $result = $this->pdo->select(
                 "per_route",
-                ["page_route", "id"],
+                ["page_route", "link_id"],
                 [
                     "page_route" => $route,
                     "link_id" => $id

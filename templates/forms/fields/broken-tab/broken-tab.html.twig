@@ -1,0 +1,26 @@
+{% extends "forms/field.html.twig" %}
+
+{% macro render_link(link) %}
+    <div>
+        <strong>URL:</strong> {{ link.full_url }}<br>
+        <strong>Status:</strong> {{ link.last_status }}<br>
+        <strong>Type:</strong> {{ link.link_type }}<br>
+        <strong>Expiration:</strong> {{ link.expiration }}<br>
+    </div>
+{% endmacro %}
+
+{% block field %}
+    {% set data = getInvalidLinks(field.name) %}
+    {% for route, links in data %}
+        <h3>{{ route }}</h3>
+        {% for type, link_list in links %}
+            <h4>{{ type|capitalize }}</h4>
+            {% for link in link_list %}
+                {{ _self.render_link(link) }}
+            {% endfor %}
+        {% endfor %}
+    {% else %}
+        <p>No invalid links found.</p>
+    {% endfor %}
+{% endblock %}
+
