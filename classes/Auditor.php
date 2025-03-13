@@ -1,9 +1,12 @@
 <?php
 namespace Grav\Plugin\BrokenLinkAudit;
 
+use DateTime;
 use Grav\Common\Grav;
 use Grav\Common\Page\Page;
+use Grav\Plugin\BrokenLinkAudit\AuditLink;
 use Medoo\Medoo;
+use Symfony\Component\Console\Helper\ProgressBar;
 
 class Auditor
 {
@@ -33,13 +36,14 @@ class Auditor
         }
     }
 
-    public function countRoutes(): int
+    public function countBrokenLinks(): int
     {
-        $data = $this->pdo->select("per_route", [
-            "unique_routes" => Medoo::raw("COUNT(DISTINCT route)")
-        ]);
+        $where = [
+            "last_status[><]" => [200, 399],
+        ];
+        $count = $this->pdo->count("links", $where);
 
-        return $data[0]['unique_routes'];
+        return $count;
     }
 
     /**
@@ -63,7 +67,7 @@ class Auditor
         $db_opts = [];
         switch ($bla_config['report_storage']['db']) {
             case 'mysql':
-                // todo: Add MySQL/ MariaDB options here.
+                // TODO: Add MySQL/ MariaDB options here.
                 if (isset($bla_config['report_storage']['host']) && isset($bla_config['report_storage']['username']) && isset($bla_config['report_storage']['password'])) {
                     $db_opts = [
                         // [required]
@@ -118,30 +122,67 @@ class Auditor
      */
     public function checkTables(): void
     {
+        $schemas["links"] = [
+            "id" => [
+                "INTEGER",
+                "NOT NULL",
+            ],
+            "full_url" => [
+                "TEXT",
+                "NOT NULL",
+                "UNIQUE"
+            ],
+            "last_status" => [
+                "INTEGER",
+                "NOT NULL",
+                "DEFAULT 404"
+            ],
+            "link_type" => [
+                "TEXT",
+                "NOT NULL",
+            ],
+            "expiration" => [
+                "NUMERIC",
+                "NOT NULL",
+                "DEFAULT 0",
+            ],
+            "PRIMARY KEY (<id> AUTOINCREMENT)",
+        ];
+
+        $schemas["per_route"] = [
+            "page_route" => [
+                "TEXT",
+                "NOT NULL",
+            ],
+            "link_id" => [
+                "NUMERIC",
+                "NOT NULL"
+            ]
+
+        ];
+
+        foreach ($schemas as $name => $schema) {
+            $this->createTableIfMissing($name, $schema);
+        }
+    }
+
+    /**
+     * Generates a table if missing at the current PDO object.
+     * @param string $name
+     *   Database table name.
+     * @param array $schema
+     *   Database table schema.
+     * @return void
+     */
+    private function createTableIfMissing($name, $schema)
+    {
         try {
             /** @var Medoo $pdo */
             $this->pdo = $this->connect();
-            $this->pdo->select("per_route", "*");
+            $this->pdo->select($name, "*", ["LIMIT" => [0,1]]);
         } catch (\PDOException $e) {
             if ($e->getCode() == "42S02" || $e ->getCode() == "HY000") {
-                $this->pdo->create("per_route", [
-                    "route" => [
-                        "TEXT",
-                        "NOT NULL",
-                    ],
-                    "link_type" => [
-                        "TEXT",
-                        "NOT NULL",
-                    ],
-                    "link" => [
-                        "TEXT",
-                        "NOT NULL",
-                    ],
-                    "last_found" => [
-                        "NUMERIC",
-                        "NOT NULL",
-                    ],
-                ]);
+                $this->pdo->create($name, $schema);
             }
         }
     }
@@ -156,22 +197,32 @@ class Auditor
     {
         $bla_config = $this->grav['config']['plugins']['broken-link-audit'];
         $inspection_level = $bla_config['inspection_level'];
-        $valid_routes = $this->grav['pages']->routes();
-        $this->clearLinks($page->route());
+        $all_valid_routes = $this->grav['pages']->routes();
+
+        // TODO: fix this link clearing.
+        // $this->clearLinks($page->route());
 
         if ($inspection_level == 'raw') {
             $content = $page->raw();
             // Get all links on page.
-            $links = $this->findRawPageLinks($content);
+            $pageLinks = $this->findRawPageLinks($content);
+            $auditLinks = [];
 
-            // Find bad links.
-            $bad_links = $this->findInvalidLinks($links, $page->route());
+            // Create array of AuditLink objects for processing.
+            foreach($pageLinks as $type => $links){
+                foreach ($links as $link){
+                    $auditLinks[] = new AuditLink($link, $type, $bla_config['base_url']);
+                }
+            }
 
-            // Save bad links to db.
-            $this->saveInvalidLinks($page->route(), $bad_links);
+
+
         } elseif ($inspection_level == 'rendered') {
-            // todo: find rendered content of a page.
+            // TODO: find rendered content of a page.
         }
+
+        // Insert/ Update links in db.
+        $this->saveLinks($page->route(), $auditLinks);
     }
 
     /**
@@ -182,55 +233,99 @@ class Auditor
      */
     public function clearLinks($route): void
     {
+        // TODO: Only clear expired links.
+
         $where = [
             "route[=]" => $route,
         ];
+
+        // TODO: search for link id's, then delete from table?
         $this->pdo->delete("per_route", $where);
     }
 
     /**
      * Writes out link data to database.
      *
-     * @param array $routes
+     * @param array $route
+     *   Current page route.
+     * @param array AuditLink $links
+     *   Array of links to save to db.
      * @return void
      */
-    public function saveInvalidLinks($route, $links):void
+    public function saveLinks($route, $links):void
     {
         if (empty($links)) {
             return;
         }
 
-        $data[$route] = $links;
+        $table1 = "per_route";
+        $join = [
+            "[<>]links (l)" => ["link_id" => "id"]
+        ];
+        $columns = ["link_id"];
+        $where = [
+            "page_route" => $route,
+        ];
+        $dbLinks = $this->pdo->select(
+            $table1,
+            $join,
+            $columns,
+            []
+        );
 
-        $bla_config = $this->grav['config']['plugins']['broken-link-audit'];
-        foreach ($links as $type => $link_type) {
-            foreach ($link_type as $link) {
-                $link = trim($link);
-                $where = [
-                "AND" => [
-                "route[=]" => $route,
-                "link[=]" => $link,
-                ]
-                ];
+        //TODO: if dbLinks returns results, cull away non-existant ones between $dbLinks and $links
 
-                $row_data = [
-                "route" => $route,
-                "link_type" => $type,
-                "link" => $link,
-                "last_found" => time(),
-                ];
+        foreach ($links as $link){
+            // Check if link exists
+            $full_url = $link->getLink();
+            $results = $this->pdo->select(
+                "links",
+                [
+                    'id',
+                    'expiration',
+                    'full_url',
+                    'link_type',
+                    'last_status'
+                ],
+                [ "full_url" => $full_url ]);
 
-              // Check if link exists in database.
-                $result = $this->pdo->has("per_route", $where);
+            if ($results) {
+                // Update local link object.
+                $expiration = new DateTime();
+                $expiration->setTimestamp($results[0]['expiration']);
+                $link->setExpiration($expiration);
 
-              // If link already exists, update the epoch.
-                if ($result) {
-                    $this->pdo->update("per_route", $row_data, $where);
+                if ($link->isExpired()){
+                    $link->getStatus(true);
                 } else {
-                    $this->pdo->insert("per_route", $row_data);
+                    $link->setStatus($results[0]['last_status']);
                 }
+
+                $this->pdo->update(
+                    "links",
+                    [
+                        "full_url" => $full_url,
+                        "last_status" => $link->getStatus(),
+                        "expiration" => $results[0]['expiration'],
+                        "link_type" => $results[0]['link_type']
+
+                    ],
+                    ["id" => $results[0]['id']]
+                );
+            } else {
+                // Write to links table.
+                $this->pdo->insert(
+                    "links",
+                    [
+                        "full_url" => $link->getLink(),
+                        "last_status" => $link->getStatus(),
+                        "link_type" => $link->getType(),
+                        "expiration" => $link->getExpiration()->format('U'),
+                    ],
+                );
             }
         }
+        $here = true;
     }
 
     /**
@@ -253,57 +348,6 @@ class Auditor
         }
 
         return $links;
-    }
-
-
-    private function findInvalidLinks($full_links, $route): array
-    {
-        $bla_config = $this->grav['config']['plugins']['broken-link-audit'];
-        $base_url = $bla_config['base_url'];
-        $invalid_links = [];
-        $valid_links = [];
-
-      // Process each link type.
-        foreach ($full_links as $type => $links) {
-            if ("stream" === $type) {
-                continue;
-            }
-
-          // Process each link.
-            foreach ($links as $link) {
-                if ('page_remote' === $type) {
-                  $url = $link;
-                } else if ('page_relative' === $type) {
-                    $url = $base_url . '/' . $link;
-                } else if ('page_absolute_relative' == $type) {
-                    if (substr($link, 0, 1) == '/') {
-                        $url = $base_url . $link;
-                    } else {
-                        $url = $base_url . '/' . $link;
-                    }
-                }
-
-              // Curl setup.
-                $ch = curl_init($url);
-                curl_setopt($ch, CURLOPT_NOBODY, true);
-                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Avoid SSL verification issues
-
-                $result = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $error = curl_error($ch);
-                curl_close($ch);
-                if ($httpCode < 200 || $httpCode >= 400) {
-                    $invalid_links[$type][] = $link;
-                } else {
-                    $valid_links[$type][] = $link;
-                }
-            }
-        }
-
-        return $invalid_links;
     }
 
     private function rawInspectionPatterns(): array

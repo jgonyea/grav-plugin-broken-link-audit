@@ -28,6 +28,11 @@ indent_style = space
 [*.xml]
 indent_size = 1
 
+# Match docbook files, set indent width of one
+[*.php]
+indent_size = 4
+indent_style = space
+
 # Match json/lockfiles/markdown/nix/ruby files, set indent width of two
 [*.{json,lock,md,nix,rb}]
 indent_size = 2

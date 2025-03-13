@@ -85,7 +85,7 @@ class BrokenLinkAuditPlugin extends Plugin
         $count = new Container([
             'updates' => 0,
             'count' => function () {
-                return $this->auditor->countRoutes();
+                return $this->auditor->countBrokenLinks();
             }
         ]);
 
@@ -97,9 +97,9 @@ class BrokenLinkAuditPlugin extends Plugin
         ];
 
         $this->grav['twig']->plugins_quick_tray['Broken Link Audit'] = [
-            'authorize' => 'taskReindexTNTSearch', //todo: fix this
+            'authorize' => 'taskReindexTNTSearch', //TODO: fix this
             'hint' => 'Reindexs the site for broken links',
-            'class' => 'brokenLinkAudit-rescan', //todo: fix this
+            'class' => 'brokenLinkAudit-rescan', //TODO: fix this
             'icon' => 'fa-chain-broken'
         ];
     }
@@ -119,7 +119,7 @@ class BrokenLinkAuditPlugin extends Plugin
 
     /**
      * Handle the ReScan task from the admin.
-     * Todo: fix this.
+     * TODO: fix this.
      *
      * @param Event $e
      */
@@ -245,8 +245,6 @@ class BrokenLinkAuditPlugin extends Plugin
         foreach ($pages->all() as $key => $page) {
             $auditor->scanPage($page);
         }
-
-        //$bad_links = $this->checkLinks($all_links, $inspection_level, $valid_routes);
     }
 
     /**
@@ -290,6 +288,7 @@ class BrokenLinkAuditPlugin extends Plugin
      */
     public function getInvalidLinks($route = null): array
     {
+        return [];
         if (isset($route)) {
             $where = [
                 "route[=]" => $route
@@ -301,7 +300,7 @@ class BrokenLinkAuditPlugin extends Plugin
             "route",
             "link_type",
             "link",
-            "last_found",
+            "last_checked",
         ], $where);
         $data = [];
         foreach ($results as $row) {
@@ -313,7 +312,7 @@ class BrokenLinkAuditPlugin extends Plugin
             }
             $link_type = $row['link_type'];
             $link = $row['link'];
-            $last_found = $row['last_found'];
+            $last_checked = $row['last_checked'];
 
             if (!isset($data[$route])) {
                 $data[$route] = [];
@@ -330,7 +329,7 @@ class BrokenLinkAuditPlugin extends Plugin
 
     public function checkLinks($links, $inspection_level, $valid_routes): array
     {
-        // todo: make this a direct call from find links rather than having to reparse the whole thing again.
+        // TODO: make this a direct call from find links rather than having to reparse the whole thing again.
         $bad_links = array();
         foreach ($links as $path => $page) {
             if ($inspection_level == 'raw') {

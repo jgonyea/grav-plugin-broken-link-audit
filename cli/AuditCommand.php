@@ -1,9 +1,10 @@
 <?php
 namespace Grav\Plugin\Console;
-
+use Grav\Common\Grav;
 use Grav\Console\ConsoleCommand;
 use Grav\Plugin\BrokenLinkAudit;
 use Grav\Plugin\BrokenLinkAuditPlugin;
+use Grav\Plugin\BrokenLinkAudit\Auditor;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -36,7 +37,7 @@ class AuditCommand extends ConsoleCommand
     ];
 
     /**
-     * Greets a person with or without yelling
+     * Starts an audit of broken links.
      */
     protected function configure()
     {
@@ -44,9 +45,9 @@ class AuditCommand extends ConsoleCommand
             ->setName("audit")
             ->setDescription("Starts a broken link audit")
             ->addArgument(
-                'url',
+                'route',
                 InputArgument::OPTIONAL,
-                'The name of the person that should be greeted'
+                'The name of the single route that should be scanned.'
             )
             ->addOption(
                 'all',
@@ -54,7 +55,13 @@ class AuditCommand extends ConsoleCommand
                 InputOption::VALUE_NONE,
                 'Scan all pages'
             )
-            ->setHelp('The <info>audit</info> scans pages for broken links.')
+            ->addOption(
+                'route',
+                'r',
+                InputOption::VALUE_NONE,
+                'Scan single route'
+            )
+            ->setHelp('The <info>audit</info> command scans pages for broken links.')
         ;
     }
 
@@ -65,20 +72,41 @@ class AuditCommand extends ConsoleCommand
     {
         // Collects the arguments and options as defined
         $this->options = [
-            'all' => $this->input->getOption('all')
+            'all' => $this->input->getOption('all'),
+            'route'=> $this->input->getOption('route'),
         ];
 
+        $auditor = new Auditor();
+        $grav = Grav::instance();
         $this->initializePages();
 
-        $greetings = 'Kicking off audit';
-        
+        $this->output->writeln('Starting scan');
+
         // If "all" is set, run scan on all pages.
         if ($this->options['all']) {
-            BrokenLinkAuditPlugin::scanPages();
-            $greetings = $greetings . ' of all pages';
-        }
+            /** @var Pages $pages */
+            $pages = $grav['pages'];
+            if (method_exists($pages, 'enablePages')) {
+                $pages->enablePages();
+            }
 
-        // finally we write to the output the greetings
-        $this->output->writeln($greetings);
+            // Process page(s).
+            foreach ($pages->all() as $key => $page) {
+                $auditor->scanPage($page);
+            }
+        } else if ($this->options['route']) {
+            $pages = $grav['pages'];
+
+            // TODO: Add individual page scan.
+
+            // Hard coded route.
+            $route = '/broken-links';
+            if (method_exists($pages, 'enablePages')) {
+                $pages->enablePages();
+            }
+            $page = $pages->find($route);
+
+            $auditor->scanPage($page);
+        }
     }
 }
